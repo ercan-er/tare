@@ -7,6 +7,10 @@ build
 npm-debug.log*
 .env
 .env*.local
+.env.local.*
+# Firebase service account anahtarlari — asla commit edilmemeli
+*firebase-adminsdk*.json
+serviceAccountKey.json
 local.db
 local.db-journal
 local.db-shm
