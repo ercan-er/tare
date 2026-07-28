@@ -128,13 +128,76 @@ error.
 
 ---
 
-## 4. Deploying to Vercel
+## 4. Checkout and payments
+
+Stripe, in **test mode only**. An `sk_live_` key is rejected in
+`lib/stripe.ts`; this store never takes real money.
+
+```bash
+STRIPE_SECRET_KEY=sk_test_…      # Stripe dashboard → Developers → API keys
+STRIPE_WEBHOOK_SECRET=whsec_…    # see below
+```
+
+Without those two the catalogue and cart still work; only the checkout route
+answers `503 payments_not_configured`.
+
+### The flow
+
+1. `POST /api/checkout` reads the cart **from the database**, writes a
+   `pending` order with a snapshot of every name and price, then opens a
+   Stripe Checkout session and returns its URL.
+2. Stripe collects the payment on its own hosted page.
+3. `POST /api/webhooks/stripe` verifies the signature, marks the order `paid`,
+   decrements stock and empties the cart.
+4. `/checkout/success` polls `/api/orders?session_id=…` until the order turns
+   `paid` — the buyer can arrive there before the webhook does.
+
+Two rules the code takes seriously:
+
+**No amount is ever read from the browser.** `/api/checkout` ignores the
+request body entirely. If prices came from the client, anyone could order a
+$149 grinder for one cent.
+
+**Only the webhook confirms payment.** Landing on the success page proves
+nothing; a user can type that URL. The order becomes `paid` in exactly one
+place, behind a verified signature.
+
+The `paid` transition is conditional on the row still being `pending`, so a
+webhook Stripe delivers twice cannot decrement stock twice.
+
+### Local webhooks
+
+`localhost` is not reachable from Stripe, so forward the events:
+
+```bash
+stripe listen --forward-to localhost:3000/api/webhooks/stripe
+```
+
+That command prints the `whsec_…` value for `STRIPE_WEBHOOK_SECRET`. It is
+different from the one the Vercel endpoint uses.
+
+Pay with `4242 4242 4242 4242`, any future expiry, any CVC.
+
+### Webhooks on Vercel
+
+Stripe dashboard → Developers → Webhooks → **Add endpoint**:
+
+- URL: `https://<your-domain>/api/webhooks/stripe`
+- Events: `checkout.session.completed` and `checkout.session.expired`
+
+Copy that endpoint's signing secret into `STRIPE_WEBHOOK_SECRET` on Vercel.
+Preview deployments sit behind Deployment Protection, so Stripe cannot reach
+them unless the protection bypass is configured.
+
+---
+
+## 5. Deploying to Vercel
 
 1. Push to GitHub, then **Import Project** in Vercel
 2. Add the environment variables for **both** Preview and Production:
    `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, the six `NEXT_PUBLIC_FIREBASE_*`
-   (plus `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` if you have one), and the three
-   `FIREBASE_*`
+   (plus `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` if you have one), the three
+   `FIREBASE_*`, and `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`
 3. Deploy
 
 Framework detection is automatic; no extra configuration is needed.
@@ -145,7 +208,55 @@ default, so without this secret every verification run gets a 403.
 
 ---
 
-## 5. Using this as a verification target
+## 6. Tracing (OpenTelemetry)
+
+Spans leave over **OTLP / HTTP with protobuf encoding**. `instrumentation.ts`
+in the project root is the whole setup; Next.js calls its `register()` once per
+runtime.
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=https://collector.service.ironbee.dev
+OTEL_EXPORTER_OTLP_HEADERS=X-API-Key=anonymous
+OTEL_SERVICE_NAME=tare-storefront
+OTEL_LOG_LEVEL=debug
+```
+
+Leave the endpoint empty and tracing is off entirely. The `/v1/traces` signal
+path is appended for you — set the base URL, not the full path.
+
+`OTEL_EXPORTER_OTLP_HEADERS` uses the standard `key=value,key2=value2` syntax,
+so the auth header is configuration rather than code.
+
+### Read this before trusting a green log line
+
+`@vercel/otel`'s OTLP exporter calls its **success** callback for any fetch
+that resolves — including `400`, `401` and `500`. Only a network-level failure
+counts as an error. An exporter reporting success therefore proves the request
+left the process, not that the collector accepted it.
+
+The real status is visible at debug level only:
+
+```
+@vercel/otel/otlp: onSuccess 400
+```
+
+That is why `OTEL_LOG_LEVEL=debug` is recommended rather than optional. Without
+it, a collector rejecting every span looks exactly like a healthy pipeline.
+
+### Why this exporter
+
+The fetch-based exporter works in both the Node and edge runtimes and survives
+Vercel's short-lived functions. The stock `@opentelemetry/exporter-trace-otlp-proto`
+builds on Node's `http` module and can be frozen mid-flight when a serverless
+function returns, losing the batch.
+
+Spans are batched, so they leave a few seconds after the request they describe.
+A server killed immediately after a request may exit before the batch flushes —
+that is buffering, not a broken pipeline.
+
+---
+
+## 7. Using this as a verification target
 
 ### Fault injection
 
@@ -188,7 +299,7 @@ watch.
 
 ---
 
-## 6. API contract
+## 8. API contract
 
 Everything is JSON and `no-store`.
 
@@ -199,6 +310,9 @@ Everything is JSON and `no-store`.
 | `/api/products/[slug]` | GET | — | `product` + `related`, 404 when missing |
 | `/api/categories` | GET | — | With product counts |
 | `/api/cart` | GET · POST · DELETE | **Bearer** | Scoped to the Firebase UID |
+| `/api/checkout` | POST | **Bearer** | Body ignored; opens a Stripe session, returns `url` |
+| `/api/orders` | GET | **Bearer** | `?session_id=` for one order, otherwise the list |
+| `/api/webhooks/stripe` | POST | **Signature** | Stripe only; the sole path that marks an order paid |
 | `/api/contact` | POST | — | 422 returns per-field errors |
 
 `/api/products` query parameters: `category`, `brand`, `q`, `minPrice`,
@@ -216,22 +330,27 @@ Error bodies always take the same shape:
 
 ---
 
-## 7. Project layout
+## 9. Project layout
 
 ```
 app/
   page.tsx                    home · hero, categories, featured
   products/page.tsx           listing · filters, sorting, pagination
   products/[slug]/page.tsx    detail · add to cart, related products
-  cart/page.tsx               cart · quantities, removal, summary
+  cart/page.tsx               cart · quantities, removal, checkout
+  checkout/success/page.tsx   order confirmation · polls until paid
   contact/page.tsx            contact form
   login/page.tsx              sign in, sign up, Google
-  api/…                       six endpoints
+  api/…                       nine endpoints
 components/                   providers and interface pieces
+instrumentation.ts            OpenTelemetry registration (OTLP/HTTP protobuf)
 lib/
   metrics.ts                  Analytics + Performance, lazily loaded
   db.ts                       libSQL client
   queries.ts                  all SQL, in one place
+  stripe.ts                   Stripe client · refuses live keys
+  guard.ts                    Bearer-token gate for protected routes
+  pricing.ts                  shipping rule, shared by client and server
   types.ts                    the contracts
   firebase-admin.ts           ID token verification
   faults.ts                   fault injection

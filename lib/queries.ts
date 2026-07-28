@@ -1,10 +1,14 @@
 import "server-only";
 import { db } from "./db";
 import { isFault } from "./faults";
+import { shippingFor } from "./pricing";
 import type {
   Cart,
   CartLine,
   Category,
+  Order,
+  OrderItem,
+  OrderStatus,
   Paginated,
   Product,
   ProductQuery,
@@ -284,4 +288,229 @@ export async function saveMessage(m: {
     args: [m.name, m.email, m.subject, m.body, new Date().toISOString()],
   });
   return Number(res.lastInsertRowid ?? 0);
+}
+
+/* ─────────────────────────── orders ─────────────────────────── */
+
+async function itemsOf(orderId: number): Promise<OrderItem[]> {
+  const res = await db().execute({
+    sql: `SELECT product_id, name, price, quantity
+            FROM order_items WHERE order_id = ? ORDER BY id`,
+    args: [orderId],
+  });
+
+  return res.rows.map((r) => {
+    const price = Number(r.price);
+    const quantity = Number(r.quantity);
+    return {
+      productId: Number(r.product_id),
+      name: String(r.name),
+      price,
+      quantity,
+      lineTotal: price * quantity,
+    };
+  });
+}
+
+function toOrder(r: Row, items: OrderItem[]): Order {
+  return {
+    id: Number(r.id),
+    status: String(r.status) as OrderStatus,
+    email: r.email ? String(r.email) : null,
+    subtotal: Number(r.subtotal),
+    shipping: Number(r.shipping),
+    total: Number(r.total),
+    currency: "USD",
+    createdAt: String(r.created_at),
+    paidAt: r.paid_at ? String(r.paid_at) : null,
+    items,
+  };
+}
+
+export type CheckoutResult =
+  | { ok: true; order: Order }
+  | { ok: false; code: "empty_cart" | "out_of_stock"; message: string };
+
+/**
+ * Sepetten "pending" bir siparis olusturur.
+ *
+ * Fiyatlar ve kargo burada, veritabanindaki degerlerden hesaplaniyor.
+ * Istemcinin gonderdigi hicbir tutara guvenilmiyor; aksi halde tarayici
+ * uzerinden 1 cent'e siparis verilebilirdi.
+ */
+export async function createPendingOrder(
+  uid: string,
+  email: string | null
+): Promise<CheckoutResult> {
+  const cart = await getCart(uid);
+
+  if (cart.lines.length === 0) {
+    return { ok: false, code: "empty_cart", message: "Your cart is empty." };
+  }
+
+  const short = cart.lines.find((l) => l.quantity > l.stock);
+  if (short) {
+    return {
+      ok: false,
+      code: "out_of_stock",
+      message:
+        short.stock === 0
+          ? `${short.name} is out of stock.`
+          : `Only ${short.stock} left of ${short.name}.`,
+    };
+  }
+
+  const subtotal = cart.subtotal;
+  const shipping = shippingFor(subtotal);
+  const total = subtotal + shipping;
+  const now = new Date().toISOString();
+
+  const res = await db().execute({
+    sql: `INSERT INTO orders (uid, email, status, subtotal, shipping, total, currency, created_at)
+          VALUES (?, ?, 'pending', ?, ?, ?, 'USD', ?)`,
+    args: [uid, email, subtotal, shipping, total, now],
+  });
+  const orderId = Number(res.lastInsertRowid ?? 0);
+
+  await db().batch(
+    cart.lines.map((l) => ({
+      sql: `INSERT INTO order_items (order_id, product_id, name, price, quantity)
+            VALUES (?, ?, ?, ?, ?)`,
+      args: [orderId, l.productId, l.name, l.price, l.quantity],
+    })),
+    "write"
+  );
+
+  return {
+    ok: true,
+    order: {
+      id: orderId,
+      status: "pending",
+      email,
+      subtotal,
+      shipping,
+      total,
+      currency: "USD",
+      createdAt: now,
+      paidAt: null,
+      items: cart.lines.map((l) => ({
+        productId: l.productId,
+        name: l.name,
+        price: l.price,
+        quantity: l.quantity,
+        lineTotal: l.lineTotal,
+      })),
+    },
+  };
+}
+
+export async function setOrderSession(
+  orderId: number,
+  sessionId: string
+): Promise<void> {
+  await db().execute({
+    sql: "UPDATE orders SET stripe_session_id = ? WHERE id = ?",
+    args: [sessionId, orderId],
+  });
+}
+
+/**
+ * Odemeyi onaylar: siparisi "paid" yapar, stogu duser, sepeti bosaltir.
+ *
+ * Stripe ayni olayi birden fazla kez gonderebiliyor (yeniden deneme, ag
+ * hatasi). Bu yuzden gecis `status = 'pending'` sartina bagli: ikinci cagri
+ * hicbir satiri guncellemez, `applied: false` doner ve stok bir daha dusmez.
+ */
+export async function markOrderPaid(
+  sessionId: string
+): Promise<{ applied: boolean; orderId: number | null }> {
+  const upd = await db().execute({
+    sql: `UPDATE orders SET status = 'paid', paid_at = ?
+           WHERE stripe_session_id = ? AND status = 'pending'`,
+    args: [new Date().toISOString(), sessionId],
+  });
+
+  const found = await db().execute({
+    sql: "SELECT id, uid FROM orders WHERE stripe_session_id = ?",
+    args: [sessionId],
+  });
+  const row = found.rows[0];
+  const orderId = row ? Number(row.id) : null;
+
+  if (Number(upd.rowsAffected ?? 0) === 0) {
+    return { applied: false, orderId };
+  }
+
+  const items = await db().execute({
+    sql: "SELECT product_id, quantity FROM order_items WHERE order_id = ?",
+    args: [orderId],
+  });
+
+  const statements = [
+    ...items.rows.map((i) => ({
+      // MAX(0, …) yarisan iki siparisin stogu eksiye dusurmesini engelliyor.
+      sql: "UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?",
+      args: [Number(i.quantity), Number(i.product_id)],
+    })),
+    { sql: "DELETE FROM cart_lines WHERE uid = ?", args: [String(row!.uid)] },
+  ];
+
+  await db().batch(statements, "write");
+
+  return { applied: true, orderId };
+}
+
+/**
+ * Stripe oturumu suresi dolunca siparisi kapatir.
+ *
+ * markOrderPaid ile ayni sarta bagli: yalnizca hala "pending" olan siparis
+ * iptal edilir. Odenmis bir siparis, gec gelen bir "expired" olayi yuzunden
+ * geri alinmaz.
+ */
+export async function markOrderCancelled(
+  sessionId: string
+): Promise<{ applied: boolean; orderId: number | null }> {
+  const upd = await db().execute({
+    sql: `UPDATE orders SET status = 'cancelled'
+           WHERE stripe_session_id = ? AND status = 'pending'`,
+    args: [sessionId],
+  });
+
+  const found = await db().execute({
+    sql: "SELECT id FROM orders WHERE stripe_session_id = ?",
+    args: [sessionId],
+  });
+
+  return {
+    applied: Number(upd.rowsAffected ?? 0) > 0,
+    orderId: found.rows[0] ? Number(found.rows[0].id) : null,
+  };
+}
+
+export async function getOrderBySession(
+  sessionId: string,
+  uid: string
+): Promise<Order | null> {
+  // uid sarti onemli: aksi halde oturum kimligini bilen bir kullanici
+  // baskasinin siparisini goruntuleyebilirdi.
+  const res = await db().execute({
+    sql: "SELECT * FROM orders WHERE stripe_session_id = ? AND uid = ?",
+    args: [sessionId, uid],
+  });
+  const row = res.rows[0];
+  return row ? toOrder(row, await itemsOf(Number(row.id))) : null;
+}
+
+export async function listOrders(uid: string, limit = 25): Promise<Order[]> {
+  const res = await db().execute({
+    sql: `SELECT * FROM orders WHERE uid = ?
+           ORDER BY created_at DESC LIMIT ?`,
+    args: [uid, limit],
+  });
+
+  const out: Order[] = [];
+  for (const row of res.rows) {
+    out.push(toOrder(row, await itemsOf(Number(row.id))));
+  }
+  return out;
 }

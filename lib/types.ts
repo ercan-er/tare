@@ -61,6 +61,29 @@ export type Paginated<T> = {
   totalPages: number;
 };
 
+export type OrderStatus = "pending" | "paid" | "cancelled";
+
+export type OrderItem = {
+  productId: number;
+  name: string;      // siparis anindaki isim, urun sonradan degisse de sabit
+  price: number;     // siparis anindaki birim fiyat, cents
+  quantity: number;
+  lineTotal: number;
+};
+
+export type Order = {
+  id: number;
+  status: OrderStatus;
+  email: string | null;
+  subtotal: number;
+  shipping: number;
+  total: number;
+  currency: "USD";
+  createdAt: string;
+  paidAt: string | null;
+  items: OrderItem[];
+};
+
 export type ApiError = {
   error: { code: string; message: string };
 };

@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useAuth } from "@/components/auth-provider";
 import { useCart } from "@/components/cart-provider";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { trackViewCart } from "@/lib/metrics";
+import { shippingFor } from "@/lib/pricing";
 
 const fmt = (cents: number) =>
   new Intl.NumberFormat("en-US", {
@@ -12,12 +13,44 @@ const fmt = (cents: number) =>
   }).format(cents / 100);
 
 export default function CartPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, token } = useAuth();
   const { cart, setLine, clear, busy, error } = useCart();
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
 
   useEffect(() => {
     if (cart.itemCount > 0) void trackViewCart(cart.subtotal, cart.itemCount);
   }, [cart.itemCount, cart.subtotal]);
+
+  async function startCheckout() {
+    setCheckingOut(true);
+    setCheckoutError(null);
+    try {
+      const t = await token();
+      if (!t) {
+        setCheckoutError("Your session expired. Sign in again.");
+        return;
+      }
+
+      // Govde gondermiyoruz: sunucu sepeti ve tutarlari kendisi okuyor.
+      const res = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { authorization: `Bearer ${t}` },
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data?.url) {
+        setCheckoutError(data?.error?.message ?? "Could not start checkout.");
+        return;
+      }
+
+      window.location.href = data.url as string;
+    } catch {
+      setCheckoutError("Network error. Try again.");
+    } finally {
+      setCheckingOut(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -39,7 +72,7 @@ export default function CartPage() {
     );
   }
 
-  const shipping = cart.subtotal === 0 || cart.subtotal >= 7500 ? 0 : 900;
+  const shipping = shippingFor(cart.subtotal);
 
   return (
     <div className="wrap">
@@ -123,11 +156,25 @@ export default function CartPage() {
               <span>Total</span>
               <span data-testid="total">{fmt(cart.subtotal + shipping)}</span>
             </div>
-            <button className="btn block" style={{ marginTop: 16 }} disabled>
-              Checkout
+            <button
+              className="btn block"
+              style={{ marginTop: 16 }}
+              onClick={() => void startCheckout()}
+              disabled={busy || checkingOut || cart.lines.length === 0}
+              data-testid="checkout"
+            >
+              {checkingOut ? "Redirecting…" : "Checkout"}
             </button>
+
+            {checkoutError && (
+              <div className="alert err" style={{ marginTop: 12 }} data-testid="checkout-error">
+                {checkoutError}
+              </div>
+            )}
+
             <p style={{ fontSize: 12, color: "var(--faint)", margin: "10px 0 0", textAlign: "center" }}>
-              This is a demo store. Checkout is disabled.
+              Stripe test mode. Pay with card 4242 4242 4242 4242, any future
+              expiry and any CVC. No real money moves.
             </p>
           </aside>
         </div>

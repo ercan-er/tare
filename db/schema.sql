@@ -44,3 +44,30 @@ CREATE TABLE IF NOT EXISTS messages (
   body       TEXT NOT NULL,
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS orders (
+  id                INTEGER PRIMARY KEY AUTOINCREMENT,
+  uid               TEXT NOT NULL,                  -- firebase uid
+  email             TEXT,
+  status            TEXT NOT NULL DEFAULT 'pending' -- pending | paid | cancelled
+                    CHECK (status IN ('pending', 'paid', 'cancelled')),
+  subtotal          INTEGER NOT NULL,               -- cents
+  shipping          INTEGER NOT NULL,               -- cents
+  total             INTEGER NOT NULL,               -- cents
+  currency          TEXT NOT NULL DEFAULT 'USD',
+  stripe_session_id TEXT UNIQUE,
+  created_at        TEXT NOT NULL,
+  paid_at           TEXT
+);
+
+CREATE TABLE IF NOT EXISTS order_items (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL,
+  name       TEXT NOT NULL,                         -- siparis anindaki isim
+  price      INTEGER NOT NULL,                      -- siparis anindaki fiyat, cents
+  quantity   INTEGER NOT NULL CHECK (quantity > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_orders_uid     ON orders(uid);
+CREATE INDEX IF NOT EXISTS idx_order_items_id ON order_items(order_id);

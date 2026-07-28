@@ -1,29 +1,8 @@
-import { verifyBearer, adminConfigured } from "@/lib/firebase-admin";
 import { getCart, setCartLine, clearCart } from "@/lib/queries";
 import { ok, jsonError } from "@/lib/api";
+import { requireUser } from "@/lib/guard";
 
 export const dynamic = "force-dynamic";
-
-async function requireUser(req: Request) {
-  if (!adminConfigured) {
-    return {
-      user: null,
-      response: jsonError(
-        503,
-        "auth_not_configured",
-        "Firebase Admin environment variables are not configured on the server."
-      ),
-    };
-  }
-  const user = await verifyBearer(req);
-  if (!user) {
-    return {
-      user: null,
-      response: jsonError(401, "unauthorized", "A valid Firebase ID token is required."),
-    };
-  }
-  return { user, response: null };
-}
 
 export async function GET(req: Request) {
   const { user, response } = await requireUser(req);
