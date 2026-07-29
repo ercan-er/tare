@@ -10,14 +10,17 @@ export type TrackingStage = {
   label: string;
   detail: string;
   at: number; // 0..1, toplam surenin hangi noktasinda basladigi
+  icon: string; // o asamayi tasiyan arac / durum emojisi
 };
 
+// Uçak → kamyon → motor: paket havadan cikar, sehir merkezine kamyonla
+// gelir, son etabi kurye motoruyla tamamlar.
 export const TRACKING_STAGES: TrackingStage[] = [
-  { key: "confirmed", label: "Order confirmed", detail: "We received your order.", at: 0 },
-  { key: "packed", label: "Packed", detail: "Your items were packed at the warehouse.", at: 0.2 },
-  { key: "shipped", label: "Handed to courier", detail: "The parcel left our facility.", at: 0.45 },
-  { key: "out", label: "Out for delivery", detail: "The courier is on the way.", at: 0.75 },
-  { key: "delivered", label: "Delivered", detail: "Left at the door. Enjoy.", at: 1 },
+  { key: "confirmed", label: "Order confirmed", detail: "Packed and labelled at the warehouse.", at: 0, icon: "📦" },
+  { key: "air", label: "In the air", detail: "On the next cargo flight to your region.", at: 0.15, icon: "✈️" },
+  { key: "hub", label: "Landed · city hub", detail: "Trucked from the airport to your city hub.", at: 0.5, icon: "🚚" },
+  { key: "out", label: "Out for delivery", detail: "A courier is riding it over on a motorbike.", at: 0.8, icon: "🏍️" },
+  { key: "delivered", label: "Delivered", detail: "Left at your door. Enjoy.", at: 1, icon: "🏠" },
 ];
 
 export type TrackingSnapshot = {

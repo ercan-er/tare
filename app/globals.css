@@ -261,16 +261,18 @@ select{
 .track-title{font-weight:600;font-size:14.5px;color:var(--ink)}
 .track-eta{font-size:13px;color:var(--brass);font-weight:600}
 .track-eta[data-delivered="true"]{color:var(--ok)}
-.track-bar{height:6px;border-radius:6px;background:var(--paper-2);overflow:hidden}
-.track-fill{display:block;height:100%;background:var(--brass);border-radius:6px;transition:width .8s ease}
-.track-steps{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
-.track-steps li{position:relative;display:flex;gap:12px;padding:0 0 14px 2px}
+.track-bar{position:relative;height:8px;border-radius:8px;background:var(--paper-2);margin-top:6px}
+.track-fill{display:block;height:100%;background:var(--brass);border-radius:8px;transition:width .9s linear}
+.track-vehicle{position:absolute;top:50%;transform:translate(-50%,-50%);font-size:19px;line-height:1;transition:left .9s linear;filter:drop-shadow(0 1px 1px rgba(0,0,0,.18));animation:track-bob 1.5s ease-in-out infinite}
+@keyframes track-bob{0%,100%{margin-top:0}50%{margin-top:-3px}}
+.track-steps{list-style:none;margin:18px 0 0;padding:0;display:flex;flex-direction:column;gap:4px}
+.track-steps li{position:relative;display:flex;gap:12px;padding:0 0 15px 0}
 .track-steps li:last-child{padding-bottom:0}
-.track-dot{flex:none;width:14px;height:14px;margin-top:3px;border-radius:50%;border:2px solid var(--line);background:var(--card);z-index:1}
-.track-steps li:not(:last-child)::before{content:"";position:absolute;left:8px;top:17px;bottom:-3px;width:2px;background:var(--line)}
-.track-steps li[data-state="done"] .track-dot{border-color:var(--ok);background:var(--ok)}
+.track-dot{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);background:var(--card);display:flex;align-items:center;justify-content:center;font-size:12.5px;z-index:1;filter:grayscale(1);opacity:.5}
+.track-steps li:not(:last-child)::before{content:"";position:absolute;left:11px;top:26px;bottom:-2px;width:2px;background:var(--line)}
+.track-steps li[data-state="done"] .track-dot{border-color:var(--ok);filter:none;opacity:1}
 .track-steps li[data-state="done"]::before{background:var(--ok)}
-.track-steps li[data-state="active"] .track-dot{border-color:var(--brass);background:var(--brass);box-shadow:0 0 0 4px var(--brass-soft)}
+.track-steps li[data-state="active"] .track-dot{border-color:var(--brass);filter:none;opacity:1;box-shadow:0 0 0 4px var(--brass-soft)}
 .track-step-label{font-size:14px;font-weight:600;color:var(--muted)}
 .track-step-detail{font-size:12.5px;color:var(--faint)}
 .track-steps li[data-state="done"] .track-step-label,
@@ -289,13 +291,16 @@ select{
 .story-label{font-size:12px;color:var(--ink-2);max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .story-bubble:hover .story-ring{filter:brightness(1.05)}
 
-.stories-viewer{position:fixed;inset:0;z-index:100;background:rgba(12,16,14,.82);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:16px;animation:story-fade .2s ease}
+.stories-viewer{position:fixed;inset:0;z-index:100;background:rgba(12,16,14,.9);display:flex;align-items:center;justify-content:center;padding:16px;animation:story-fade .2s ease}
 .story-stage{position:relative;width:min(440px,100%);height:min(86vh,780px);border-radius:16px;overflow:hidden;background:#0c100e;box-shadow:0 24px 80px rgba(0,0,0,.5);animation:story-rise .32s cubic-bezier(.2,.8,.2,1)}
 .story-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.9}
 .story-scrim{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.5) 0%,rgba(0,0,0,0) 26%,rgba(0,0,0,.1) 52%,rgba(0,0,0,.78) 100%)}
 .story-bars{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:5px;z-index:3}
 .story-track{flex:1;height:3px;border-radius:3px;background:rgba(255,255,255,.34);overflow:hidden}
-.story-progress{display:block;height:100%;background:#fff;border-radius:3px}
+.story-progress{display:block;height:100%;width:0;background:#fff;border-radius:3px}
+.story-progress.run{animation:story-fill linear forwards;will-change:width}
+.story-stage[data-paused="true"] .story-progress.run{animation-play-state:paused}
+@keyframes story-fill{from{width:0}to{width:100%}}
 .story-top{position:absolute;top:20px;left:14px;right:14px;display:flex;align-items:center;justify-content:space-between;z-index:3}
 .story-brand{color:#fff;font-family:var(--font-serif),serif;font-size:22px;text-shadow:0 1px 4px rgba(0,0,0,.4)}
 .story-brand em{font-style:italic;color:var(--brass-soft)}

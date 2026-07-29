@@ -40,6 +40,13 @@ export function ShipmentTracker({ startIso }: { startIso: string | null }) {
 
       <div className="track-bar" role="progressbar" aria-valuenow={Math.round(snap.percent)} aria-valuemin={0} aria-valuemax={100}>
         <span className="track-fill" style={{ width: `${snap.percent}%` }} />
+        <span
+          className="track-vehicle"
+          style={{ left: `${snap.percent}%` }}
+          aria-hidden
+        >
+          {TRACKING_STAGES[snap.currentIndex].icon}
+        </span>
       </div>
 
       <ol className="track-steps">
@@ -51,7 +58,7 @@ export function ShipmentTracker({ startIso }: { startIso: string | null }) {
               key={stage.key}
               data-state={done ? "done" : active ? "active" : "todo"}
             >
-              <span className="track-dot" aria-hidden />
+              <span className="track-dot" aria-hidden>{stage.icon}</span>
               <div>
                 <div className="track-step-label">{stage.label}</div>
                 <div className="track-step-detail">{stage.detail}</div>

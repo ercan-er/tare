@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 // Kendi "Storyly"miz: Instagram tarzi reklam hikayeleri. Tamamen sunumsal,
 // veri asagida sabit. Gorseller urun seed'iyle ayni Unsplash ID'leri.
@@ -123,12 +123,8 @@ const DURATION = 5000; // ms, her slayt
 export function Stories() {
   const [open, setOpen] = useState<number | null>(null);
   const [slide, setSlide] = useState(0);
-  const [progress, setProgress] = useState(0);
   const [paused, setPaused] = useState(false);
   const [seen, setSeen] = useState<Set<string>>(new Set());
-
-  const progressRef = useRef(0);
-  progressRef.current = progress;
 
   const close = useCallback(() => setOpen(null), []);
 
@@ -139,7 +135,7 @@ export function Stories() {
   const openStory = useCallback((i: number) => {
     setOpen(i);
     setSlide(0);
-    setProgress(0);
+    setPaused(false);
     markSeen(STORIES[i].id);
   }, [markSeen]);
 
@@ -168,29 +164,6 @@ export function Stories() {
     }
   }, [open, slide]);
 
-  // Slayt/grup degisince ilerlemeyi sifirla.
-  useEffect(() => {
-    setProgress(0);
-  }, [open, slide]);
-
-  // Otomatik ilerleme. Duraklatinca kaldigi yerden devam eder.
-  useEffect(() => {
-    if (open === null || paused) return;
-    let raf = 0;
-    const start = performance.now() - progressRef.current * DURATION;
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - start) / DURATION);
-      setProgress(p);
-      if (p >= 1) {
-        next();
-        return;
-      }
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, [open, slide, paused, next]);
-
   // Acikken sayfayi kilitle + Escape / oklar.
   useEffect(() => {
     if (open === null) return;
@@ -210,6 +183,18 @@ export function Stories() {
 
   const group = open === null ? null : STORIES[open];
   const current = group?.slides[slide];
+
+  // Bir sonraki gorseli sessizce on-yukle: slayt gecerken beklemesin.
+  useEffect(() => {
+    if (!group) return;
+    const nextInGroup = group.slides[slide + 1];
+    const nextGroup = open !== null ? STORIES[open + 1] : undefined;
+    const src = nextInGroup?.photo ?? nextGroup?.slides[0]?.photo;
+    if (src) {
+      const im = new Image();
+      im.src = src;
+    }
+  }, [group, slide, open]);
 
   return (
     <>
@@ -245,25 +230,32 @@ export function Stories() {
         >
           <div
             className="story-stage"
+            data-paused={paused}
             style={{ background: current.tint }}
             onClick={(e) => e.stopPropagation()}
             onPointerDown={() => setPaused(true)}
             onPointerUp={() => setPaused(false)}
             onPointerLeave={() => setPaused(false)}
           >
-            <img className="story-bg" src={current.photo} alt="" />
+            <img className="story-bg" src={current.photo} alt="" draggable={false} />
             <div className="story-scrim" />
 
             <div className="story-bars">
               {group.slides.map((_, i) => (
                 <span className="story-track" key={i}>
-                  <span
-                    className="story-progress"
-                    style={{
-                      width:
-                        i < slide ? "100%" : i === slide ? `${progress * 100}%` : "0%",
-                    }}
-                  />
+                  {i < slide ? (
+                    <span className="story-progress" style={{ width: "100%" }} />
+                  ) : i === slide ? (
+                    <span
+                      // CSS ile 0→100 dolar; her karede React render yok.
+                      key={`${open}-${slide}`}
+                      className="story-progress run"
+                      style={{ animationDuration: `${DURATION}ms` }}
+                      onAnimationEnd={next}
+                    />
+                  ) : (
+                    <span className="story-progress" style={{ width: "0%" }} />
+                  )}
                 </span>
               ))}
             </div>
