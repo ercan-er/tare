@@ -1,9 +1,16 @@
-import { createPendingOrder, setOrderSession } from "@/lib/queries";
+import { createPendingOrder, markOrderPaid, setOrderSession } from "@/lib/queries";
 import { ok, jsonError } from "@/lib/api";
 import { requireUser } from "@/lib/guard";
 import { stripe, stripeConfigured, originOf } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
+
+// Demo modu: siparis, Stripe'a hic gitmeden aninda "paid" sayilir. Sadece
+// yerel/gosterim icindir; gercek odeme onayi (webhook) mantigini baypas eder.
+// Uretimde bu bayragi bos birak; siparisler yalnizca imzali webhook ile
+// "paid" olmaya devam eder.
+const DEMO_INSTANT_PAID =
+  process.env.DEMO_INSTANT_PAID === "1" || process.env.DEMO_INSTANT_PAID === "true";
 
 /**
  * Sepeti "pending" bir siparise cevirir ve Stripe Checkout oturumu acar.
@@ -16,7 +23,7 @@ export async function POST(req: Request) {
   const { user, response } = await requireUser(req);
   if (!user) return response!;
 
-  if (!stripeConfigured) {
+  if (!stripeConfigured && !DEMO_INSTANT_PAID) {
     return jsonError(
       503,
       "payments_not_configured",
@@ -35,6 +42,18 @@ export async function POST(req: Request) {
 
   const order = result.order;
   const origin = originOf(req);
+
+  // Demo: Stripe'i atla, siparisi hemen odenmis yap (stok duser, sepet
+  // bosalir, kargo takibi baslar) ve dogrudan onay sayfasina yolla.
+  if (DEMO_INSTANT_PAID) {
+    const fakeSession = `demo_${order.id}_${Date.now()}`;
+    await setOrderSession(order.id, fakeSession);
+    await markOrderPaid(fakeSession);
+    return ok({
+      url: `${origin}/checkout/success?session_id=${fakeSession}`,
+      orderId: order.id,
+    });
+  }
 
   try {
     const session = await stripe().checkout.sessions.create({

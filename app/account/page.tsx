@@ -170,7 +170,7 @@ export default function AccountPage() {
                 <span data-testid="order-total">{fmt(order.total)}</span>
               </div>
 
-              {order.status === "paid" && (
+              {order.status !== "cancelled" && (
                 <ShipmentTracker startIso={order.paidAt ?? order.createdAt} />
               )}
             </aside>

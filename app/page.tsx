@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listCategories, featuredProducts } from "@/lib/queries";
 import { ProductCard } from "@/components/product-card";
+import { Stories } from "@/components/stories";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export default async function HomePage() {
 
   return (
     <>
+      <Stories />
+
       <section className="hero">
         <div className="wrap hero-grid">
           <div>
