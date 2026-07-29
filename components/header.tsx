@@ -71,9 +71,14 @@ export function Header() {
           {loading ? (
             <span style={{ width: 92 }} />
           ) : user ? (
-            <button className="icon-btn" onClick={() => void signOut()}>
-              Sign out
-            </button>
+            <>
+              <Link href="/account" className="icon-btn" data-active={path === "/account"}>
+                Account
+              </Link>
+              <button className="icon-btn" onClick={() => void signOut()}>
+                Sign out
+              </button>
+            </>
           ) : (
             <Link href="/login" className="btn sm">
               Sign in

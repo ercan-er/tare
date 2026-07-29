@@ -243,6 +243,28 @@ The real status is visible at debug level only:
 That is why `OTEL_LOG_LEVEL=debug` is recommended rather than optional. Without
 it, a collector rejecting every span looks exactly like a healthy pipeline.
 
+### Checking it from a browser
+
+Spans travel server-to-server, so nothing about them ever appears in the
+browser's network tab. `GET /api/otel` fills that gap:
+
+```json
+{
+  "configured": true,
+  "endpoint": "https://collector…/v1/traces",
+  "authHeaders": ["X-API-Key"],
+  "probe": { "status": 400, "reachable": true, "authAccepted": true }
+}
+```
+
+The probe posts an empty body on purpose. A `401` means the credentials are
+wrong; any other 4xx means the collector is reachable and the credentials were
+accepted, and it merely objected to the empty payload. Header **names** are
+reported, never their values.
+
+This endpoint proves reachability, not delivery. Delivery is only visible in
+the runtime logs.
+
 ### Why this exporter
 
 The fetch-based exporter works in both the Node and edge runtimes and survives
@@ -306,6 +328,7 @@ Everything is JSON and `no-store`.
 | Endpoint | Method | Auth | Notes |
 | --- | --- | --- | --- |
 | `/api/health` | GET | — | `status`, `database`, `latencyMs`, `commit`, `environment` |
+| `/api/otel` | GET | — | Tracing config plus a reachability/credential probe |
 | `/api/products` | GET | — | Filtering, sorting, pagination, `facets` |
 | `/api/products/[slug]` | GET | — | `product` + `related`, 404 when missing |
 | `/api/categories` | GET | — | With product counts |
