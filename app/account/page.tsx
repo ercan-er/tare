@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
+import { ShipmentTracker } from "@/components/shipment-tracker";
 import type { Order } from "@/lib/types";
 
 const fmt = (cents: number) =>
@@ -168,6 +169,10 @@ export default function AccountPage() {
                 <span>Total</span>
                 <span data-testid="order-total">{fmt(order.total)}</span>
               </div>
+
+              {order.status === "paid" && (
+                <ShipmentTracker startIso={order.paidAt ?? order.createdAt} />
+              )}
             </aside>
           ))}
         </div>
