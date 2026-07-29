@@ -280,7 +280,7 @@ reported, never their values.
 
 This endpoint proves reachability, not delivery. Delivery is only visible in the runtime logs ---
 
-### Why this exporter use hey
+### Why this exporter 
 
 The fetch-based exporter works in both the Node and edge runtimes and survives
 Vercel's short-lived functions. The stock `@opentelemetry/exporter-trace-otlp-proto`
