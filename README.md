@@ -26,7 +26,7 @@ are disabled, and the interface says so plainly.
 
 
 
-## 2. SQLite and Vercel - Turbo
+## 2. SQLite and Vercel 
 
 This is where most people get caught, so it gets its own section.
 
