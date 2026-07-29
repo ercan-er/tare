@@ -26,7 +26,7 @@ are disabled, and the interface says so plainly.
 
 
 
-## 2. SQLite and Vercel
+## 2. SQLite and Vercel - Turbo
 
 This is where most people get caught, so it gets its own section.
 
@@ -280,7 +280,7 @@ reported, never their values.
 
 This endpoint proves reachability, not delivery. Delivery is only visible in the runtime logs ---
 
-### Why this exporter 
+### Why this exporter
 
 The fetch-based exporter works in both the Node and edge runtimes and survives
 Vercel's short-lived functions. The stock `@opentelemetry/exporter-trace-otlp-proto`
@@ -334,83 +334,3 @@ structure:
 | Forms          | `contact-submit`, `contact-success`, `submit-login`             |
 
 
-
-
-### Edge-case row
-
-The seed deliberately includes one hostile record: *"Limited Run Hand-Hammered
-Copper-Plated Gooseneck Kettle (Numbered Series)"* — very long name, no image,
-zero stock, low rating, highest price. Cards and the detail page have to carry
-all of that without breaking. This is the row a visual regression test should
-watch.
-
----
-
-
-
-## 8. API contract
-
-Everything is JSON and `no-store`.
-
-
-| Endpoint               | Method              | Auth          | Notes                                                      |
-| ---------------------- | ------------------- | ------------- | ---------------------------------------------------------- |
-| `/api/health`          | GET                 | —             | `status`, `database`, `latencyMs`, `commit`, `environment` |
-| `/api/otel`            | GET                 | —             | Tracing config plus a reachability/credential probe        |
-| `/api/products`        | GET                 | —             | Filtering, sorting, pagination, `facets`                   |
-| `/api/products/[slug]` | GET                 | —             | `product` + `related`, 404 when missing                    |
-| `/api/categories`      | GET                 | —             | With product counts                                        |
-| `/api/cart`            | GET · POST · DELETE | **Bearer**    | Scoped to the Firebase UID                                 |
-| `/api/checkout`        | POST                | **Bearer**    | Body ignored; opens a Stripe session, returns `url`        |
-| `/api/orders`          | GET                 | **Bearer**    | `?session_id=` for one order, otherwise the list           |
-| `/api/webhooks/stripe` | POST                | **Signature** | Stripe only; the sole path that marks an order paid        |
-| `/api/contact`         | POST                | —             | 422 returns per-field errors                               |
-
-
-`/api/products` query parameters: `category`, `brand`, `q`, `minPrice`,
-`maxPrice` (cents), `inStock`, `sort` (`newest` · `price_asc` · `price_desc` ·
-`rating`), `page`, `perPage` (1–48, default 12).
-
-Error bodies always take the same shape:
-
-```json
-{ "error": { "code": "invalid_range", "message": "…" } }
-```
-
-**Prices are integer cents** so there is no floating-point rounding drift.
-`14900` = $149.
-
----
-
-
-
-## 9. Project layout
-
-```
-app/
-  page.tsx                    home · hero, categories, featured
-  products/page.tsx           listing · filters, sorting, pagination
-  products/[slug]/page.tsx    detail · add to cart, related products
-  cart/page.tsx               cart · quantities, removal, checkout
-  checkout/success/page.tsx   order confirmation · polls until paid
-  contact/page.tsx            contact form
-  login/page.tsx              sign in, sign up, Google
-  api/…                       nine endpoints
-components/                   providers and interface pieces
-instrumentation.ts            OpenTelemetry registration (OTLP/HTTP protobuf)
-lib/
-  metrics.ts                  Analytics + Performance, lazily loaded
-  db.ts                       libSQL client
-  queries.ts                  all SQL, in one place
-  stripe.ts                   Stripe client · refuses live keys
-  guard.ts                    Bearer-token gate for protected routes
-  pricing.ts                  shipping rule, shared by client and server
-  types.ts                    the contracts
-  firebase-admin.ts           ID token verification
-  faults.ts                   fault injection
-db/
-  schema.sql · migrate.ts · seed.ts
-```
-
-Scripts: `npm run dev` · `build` · `typecheck` · `db:migrate` · `db:seed` ·
-`db:reset`.
