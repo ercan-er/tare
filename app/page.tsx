@@ -3,6 +3,7 @@ import { listCategories, featuredProducts } from "@/lib/queries";
 import { ProductCard } from "@/components/product-card";
 import { Stories } from "@/components/stories";
 import { RecentlyViewed } from "@/components/recently-viewed";
+import { HeroShader } from "@/components/hero-shader";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +18,10 @@ export default async function HomePage() {
       <Stories />
 
       <section className="hero">
+        <HeroShader />
+        <div className="hero-scrim" aria-hidden="true" />
         <div className="wrap hero-grid">
-          <div>
+          <div className="hero-copy">
             <span className="eyebrow">Coffee equipment</span>
             <h1>
               Good coffee is a <em>measurable</em> thing
@@ -35,12 +38,6 @@ export default async function HomePage() {
                 Top rated
               </Link>
             </div>
-          </div>
-          <div className="hero-art">
-            <img
-              src="https://images.unsplash.com/photo-1447933601403-0c6688de566e?auto=format&fit=crop&w=1000&q=70"
-              alt="Coffee equipment laid out on a counter"
-            />
           </div>
         </div>
       </section>

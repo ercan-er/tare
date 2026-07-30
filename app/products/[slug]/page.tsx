@@ -9,6 +9,7 @@ import { Stars } from "@/components/stars";
 import { TrackProductView } from "@/components/track-view";
 import { RecordRecentView, RecentlyViewed } from "@/components/recently-viewed";
 import { ProductReviews } from "@/components/product-reviews";
+import { FrequentlyBoughtTogether } from "@/components/frequently-bought";
 
 export const dynamic = "force-dynamic";
 
@@ -125,6 +126,21 @@ export default async function ProductPage({
           </table>
         </div>
       </div>
+
+      {related.length > 0 && (
+        <FrequentlyBoughtTogether
+          items={[
+            {
+              id: product.id, slug: product.slug, name: product.name,
+              price: product.price, imageUrl: product.imageUrl, stock: product.stock,
+            },
+            ...related.slice(0, 2).map((r) => ({
+              id: r.id, slug: r.slug, name: r.name,
+              price: r.price, imageUrl: r.imageUrl, stock: r.stock,
+            })),
+          ]}
+        />
+      )}
 
       <ProductReviews productId={product.id} />
 
