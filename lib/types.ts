@@ -77,11 +77,22 @@ export type Order = {
   email: string | null;
   subtotal: number;
   shipping: number;
+  discount: number;        // cents, kupon indirimi (0 = yok)
+  coupon: string | null;   // uygulanan kupon kodu
   total: number;
   currency: "USD";
   createdAt: string;
   paidAt: string | null;
   items: OrderItem[];
+};
+
+export type Review = {
+  id: number;
+  productId: number;
+  author: string;
+  rating: number;      // 1–5
+  body: string;
+  createdAt: string;
 };
 
 export type ApiError = {

@@ -2,11 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProduct, relatedProducts } from "@/lib/queries";
-import { formatPrice } from "@/lib/db";
 import { AddToCart } from "@/components/add-to-cart";
+import { Price } from "@/components/price";
 import { ProductCard } from "@/components/product-card";
 import { Stars } from "@/components/stars";
 import { TrackProductView } from "@/components/track-view";
+import { RecordRecentView, RecentlyViewed } from "@/components/recently-viewed";
+import { ProductReviews } from "@/components/product-reviews";
+import { FrequentlyBoughtTogether } from "@/components/frequently-bought";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +45,15 @@ export default async function ProductPage({
         price={product.price}
         brand={product.brand}
         category={product.categoryName}
+      />
+      <RecordRecentView
+        item={{
+          slug: product.slug,
+          name: product.name,
+          price: product.price,
+          imageUrl: product.imageUrl,
+          brand: product.brand,
+        }}
       />
       <div className="crumbs">
         <Link href="/">Home</Link> ·{" "}
@@ -81,7 +93,7 @@ export default async function ProductPage({
             </span>
           </div>
 
-          <div className="price" data-testid="product-price">{formatPrice(product.price)}</div>
+          <div className="price" data-testid="product-price"><Price cents={product.price} /></div>
           <div style={{ fontSize: 14, color: out ? "var(--danger)" : "var(--ok)" }}>
             {out ? "Sold out" : `${product.stock} in stock`}
           </div>
@@ -116,6 +128,23 @@ export default async function ProductPage({
       </div>
 
       {related.length > 0 && (
+        <FrequentlyBoughtTogether
+          items={[
+            {
+              id: product.id, slug: product.slug, name: product.name,
+              price: product.price, imageUrl: product.imageUrl, stock: product.stock,
+            },
+            ...related.slice(0, 2).map((r) => ({
+              id: r.id, slug: r.slug, name: r.name,
+              price: r.price, imageUrl: r.imageUrl, stock: r.stock,
+            })),
+          ]}
+        />
+      )}
+
+      <ProductReviews productId={product.id} />
+
+      {related.length > 0 && (
         <section className="sec" style={{ borderBottom: "none" }}>
           <div className="sec-head">
             <div>
@@ -130,6 +159,8 @@ export default async function ProductPage({
           </div>
         </section>
       )}
+
+      <RecentlyViewed excludeSlug={product.slug} bare />
     </div>
   );
 }

@@ -2,6 +2,8 @@ import "server-only";
 import { db } from "./db";
 import { isFault } from "./faults";
 import { shippingFor } from "./pricing";
+import { evaluateCoupon, isPromoToken } from "./coupons";
+import { verifyPromoToken } from "./promo-token";
 import type {
   Cart,
   CartLine,
@@ -12,6 +14,7 @@ import type {
   Paginated,
   Product,
   ProductQuery,
+  Review,
 } from "./types";
 
 type Row = Record<string, unknown>;
@@ -319,6 +322,8 @@ function toOrder(r: Row, items: OrderItem[]): Order {
     email: r.email ? String(r.email) : null,
     subtotal: Number(r.subtotal),
     shipping: Number(r.shipping),
+    discount: Number(r.discount ?? 0),
+    coupon: r.coupon ? String(r.coupon) : null,
     total: Number(r.total),
     currency: "USD",
     createdAt: String(r.created_at),
@@ -329,7 +334,7 @@ function toOrder(r: Row, items: OrderItem[]): Order {
 
 export type CheckoutResult =
   | { ok: true; order: Order }
-  | { ok: false; code: "empty_cart" | "out_of_stock"; message: string };
+  | { ok: false; code: "empty_cart" | "out_of_stock" | "invalid_coupon"; message: string };
 
 /**
  * Sepetten "pending" bir siparis olusturur.
@@ -340,7 +345,8 @@ export type CheckoutResult =
  */
 export async function createPendingOrder(
   uid: string,
-  email: string | null
+  email: string | null,
+  couponCode?: string | null
 ): Promise<CheckoutResult> {
   const cart = await getCart(uid);
 
@@ -362,13 +368,30 @@ export async function createPendingOrder(
 
   const subtotal = cart.subtotal;
   const shipping = shippingFor(subtotal);
-  const total = subtotal + shipping;
+
+  let discount = 0;
+  let coupon: string | null = null;
+  if (couponCode && couponCode.trim()) {
+    const promoSigValid = isPromoToken(couponCode)
+      ? verifyPromoToken(couponCode)
+      : undefined;
+    const couponRes = evaluateCoupon(couponCode, subtotal, { promoSigValid });
+    if (!couponRes.ok) {
+      return { ok: false, code: "invalid_coupon", message: couponRes.message };
+    }
+    if (couponRes.discount > 0) {
+      discount = couponRes.discount;
+      coupon = couponRes.code;
+    }
+  }
+
+  const total = subtotal + shipping - discount;
   const now = new Date().toISOString();
 
   const res = await db().execute({
-    sql: `INSERT INTO orders (uid, email, status, subtotal, shipping, total, currency, created_at)
-          VALUES (?, ?, 'pending', ?, ?, ?, 'USD', ?)`,
-    args: [uid, email, subtotal, shipping, total, now],
+    sql: `INSERT INTO orders (uid, email, status, subtotal, shipping, discount, coupon, total, currency, created_at)
+          VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, 'USD', ?)`,
+    args: [uid, email, subtotal, shipping, discount, coupon, total, now],
   });
   const orderId = Number(res.lastInsertRowid ?? 0);
 
@@ -389,6 +412,8 @@ export async function createPendingOrder(
       email,
       subtotal,
       shipping,
+      discount,
+      coupon,
       total,
       currency: "USD",
       createdAt: now,
@@ -501,6 +526,20 @@ export async function getOrderBySession(
   return row ? toOrder(row, await itemsOf(Number(row.id))) : null;
 }
 
+export async function getOrderById(
+  id: number,
+  uid: string
+): Promise<Order | null> {
+  // uid sarti onemli: baskasinin siparis id'sini tahmin eden biri
+  // siparisi goruntuleyememeli.
+  const res = await db().execute({
+    sql: "SELECT * FROM orders WHERE id = ? AND uid = ?",
+    args: [id, uid],
+  });
+  const row = res.rows[0];
+  return row ? toOrder(row, await itemsOf(Number(row.id))) : null;
+}
+
 export async function listOrders(uid: string, limit = 25): Promise<Order[]> {
   const res = await db().execute({
     sql: `SELECT * FROM orders WHERE uid = ?
@@ -513,4 +552,64 @@ export async function listOrders(uid: string, limit = 25): Promise<Order[]> {
     out.push(toOrder(row, await itemsOf(Number(row.id))));
   }
   return out;
+}
+
+// ─────────── reviews ───────────
+
+function toReview(r: Row): Review {
+  return {
+    id: Number(r.id),
+    productId: Number(r.product_id),
+    author: String(r.author),
+    rating: Number(r.rating),
+    body: String(r.body),
+    createdAt: String(r.created_at),
+  };
+}
+
+export async function productExists(id: number): Promise<boolean> {
+  const res = await db().execute({
+    sql: "SELECT 1 FROM products WHERE id = ? LIMIT 1",
+    args: [id],
+  });
+  return res.rows.length > 0;
+}
+
+export async function listReviews(productId: number, limit = 50): Promise<Review[]> {
+  const res = await db().execute({
+    sql: `SELECT * FROM reviews WHERE product_id = ?
+           ORDER BY created_at DESC LIMIT ?`,
+    args: [productId, limit],
+  });
+  return res.rows.map(toReview);
+}
+
+/**
+ * Kullanici basina urun basina tek yorum. Ayni kullanici tekrar gonderirse
+ * mevcut yorumu gunceller (uid, product_id benzersiz index'i sayesinde).
+ */
+export async function upsertReview(input: {
+  productId: number;
+  uid: string;
+  author: string;
+  rating: number;
+  body: string;
+}): Promise<Review> {
+  const now = new Date().toISOString();
+  await db().execute({
+    sql: `INSERT INTO reviews (product_id, uid, author, rating, body, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(uid, product_id)
+          DO UPDATE SET rating = excluded.rating,
+                        body = excluded.body,
+                        author = excluded.author,
+                        created_at = excluded.created_at`,
+    args: [input.productId, input.uid, input.author, input.rating, input.body, now],
+  });
+
+  const res = await db().execute({
+    sql: "SELECT * FROM reviews WHERE uid = ? AND product_id = ?",
+    args: [input.uid, input.productId],
+  });
+  return toReview(res.rows[0]);
 }

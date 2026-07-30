@@ -24,7 +24,9 @@ are disabled, and the interface says so plainly.
 
 ---
 
-## 2. SQLite and Vercel
+
+
+## 2. SQLite and Vercel 
 
 This is where most people get caught, so it gets its own section.
 
@@ -34,10 +36,12 @@ write in production, and reads are unreliable too.
 
 This project uses **libSQL**. libSQL *is* SQLite, but it can also speak HTTP:
 
-| Environment | `TURSO_DATABASE_URL` | What happens |
-| --- | --- | --- |
-| Local | `file:local.db` | A plain SQLite file on disk |
-| Vercel | `libsql://….turso.io` | Remote SQLite, persistent |
+
+| Environment | `TURSO_DATABASE_URL`  | What happens                |
+| ----------- | --------------------- | --------------------------- |
+| Local       | `file:local.db`       | A plain SQLite file on disk |
+| Vercel      | `libsql://….turso.io` | Remote SQLite, persistent   |
+
 
 The SQL dialect is identical, so there is no branching anywhere in the code.
 
@@ -58,6 +62,8 @@ TURSO_DATABASE_URL="libsql://…" TURSO_AUTH_TOKEN="…" npm run db:reset
 ```
 
 ---
+
+
 
 ## 3. Firebase setup
 
@@ -81,8 +87,8 @@ NEXT_PUBLIC_FIREBASE_APP_ID
 > Rules, Authentication authorized domains, and API key restrictions in the
 > Google Cloud console, not by hiding the key.
 
-4. **Project settings → Service accounts → Generate new private key** → take
-   three fields out of the downloaded JSON:
+1. **Project settings → Service accounts → Generate new private key** → take
+  three fields out of the downloaded JSON:
 
 ```
 FIREBASE_PROJECT_ID     ← project_id
@@ -90,8 +96,8 @@ FIREBASE_CLIENT_EMAIL   ← client_email
 FIREBASE_PRIVATE_KEY    ← private_key   (quoted, with \n escapes)
 ```
 
-5. Add your Vercel domains under **Authentication → Settings → Authorized
-   domains**. Preview URLs change on every deployment, so you need the
+1. Add your Vercel domains under **Authentication → Settings → Authorized
+  domains**. Preview URLs change on every deployment, so you need the
    `*.vercel.app` pattern too, otherwise Google sign-in breaks on previews.
 
 The server verifies the `Authorization: Bearer <ID token>` header with
@@ -103,10 +109,12 @@ never trusted.
 Two Firebase measurement products are wired in, both loaded lazily in the
 browser and both written so they can never take the page down.
 
-| Product | Needs | Status |
-| --- | --- | --- |
-| **Performance Monitoring** | Firebase config only | Active immediately |
-| **Analytics (GA4)** | `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | No-ops until set |
+
+| Product                    | Needs                                 | Status             |
+| -------------------------- | ------------------------------------- | ------------------ |
+| **Performance Monitoring** | Firebase config only                  | Active immediately |
+| **Analytics (GA4)**        | `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` | No-ops until set   |
+
 
 Performance Monitoring reports page load, render and network timings with no
 extra work. Analytics needs a measurement id, which only exists once you enable
@@ -116,17 +124,21 @@ paste the `G-XXXXXXXXXX` value into `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID`.
 
 The following standard GA4 ecommerce events are already emitted:
 
-| Event | Fires when |
-| --- | --- |
-| `view_item` | A product detail page mounts |
-| `add_to_cart` | An add to cart call succeeds |
-| `view_cart` | The cart page renders with items |
+
+| Event         | Fires when                       |
+| ------------- | -------------------------------- |
+| `view_item`   | A product detail page mounts     |
+| `add_to_cart` | An add to cart call succeeds     |
+| `view_cart`   | The cart page renders with items |
+
 
 `lib/metrics.ts` holds the helpers. Every call is wrapped so a blocked SDK, an
 ad blocker or an unsupported browser degrades to a silent no-op rather than an
 error.
 
 ---
+
+
 
 ## 4. Checkout and payments
 
@@ -144,13 +156,13 @@ answers `503 payments_not_configured`.
 ### The flow
 
 1. `POST /api/checkout` reads the cart **from the database**, writes a
-   `pending` order with a snapshot of every name and price, then opens a
+  `pending` order with a snapshot of every name and price, then opens a
    Stripe Checkout session and returns its URL.
 2. Stripe collects the payment on its own hosted page.
 3. `POST /api/webhooks/stripe` verifies the signature, marks the order `paid`,
-   decrements stock and empties the cart.
+  decrements stock and empties the cart.
 4. `/checkout/success` polls `/api/orders?session_id=…` until the order turns
-   `paid` — the buyer can arrive there before the webhook does.
+  `paid` — the buyer can arrive there before the webhook does.
 
 Two rules the code takes seriously:
 
@@ -191,11 +203,13 @@ them unless the protection bypass is configured.
 
 ---
 
+
+
 ## 5. Deploying to Vercel
 
 1. Push to GitHub, then **Import Project** in Vercel
 2. Add the environment variables for **both** Preview and Production:
-   `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, the six `NEXT_PUBLIC_FIREBASE_*`
+  `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, the six `NEXT_PUBLIC_FIREBASE_*`
    (plus `NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID` if you have one), the three
    `FIREBASE_*`, and `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`
 3. Deploy
@@ -207,6 +221,8 @@ for Automation* → **Create**, label it `IronBee`. Previews are protected by
 default, so without this secret every verification run gets a 403.
 
 ---
+
+
 
 ## 6. Tracing (OpenTelemetry)
 
@@ -243,6 +259,27 @@ The real status is visible at debug level only:
 That is why `OTEL_LOG_LEVEL=debug` is recommended rather than optional. Without
 it, a collector rejecting every span looks exactly like a healthy pipeline.
 
+### Checking it from a browser
+
+Spans travel server-to-server, so nothing about them ever appears in the
+browser's network tab. `GET /api/otel` fills that gap:
+
+```json
+{
+  "configured": true,
+  "endpoint": "https://collector…/v1/traces",
+  "authHeaders": ["X-API-Key"],
+  "probe": { "status": 400, "reachable": true, "authAccepted": true }
+}
+```
+
+The probe posts an empty body on purpose. A `401` means the credentials are
+wrong; any other 4xx means the collector is reachable and the credentials were
+accepted, and it merely objected to the empty payload. Header **names** are
+reported, never their values.
+
+This endpoint proves reachability, not delivery. Delivery is only visible in the runtime logs ---
+
 ### Why this exporter
 
 The fetch-based exporter works in both the Node and edge runtimes and survives
@@ -256,21 +293,25 @@ that is buffering, not a broken pipeline.
 
 ---
 
-## 7. Using this as a verification target
+
+
+## 7. Using this as a verification target v2
+
+
 
 ### Fault injection
 
-Set `FAULT_INJECT` **on the preview environment only** and redeploy. Leave it
-empty in production. Each value produces a real defect, which is how you prove
-a verifier catches it rather than assuming.
+Set `FAULT_INJECT` **on the preview environment only** and redeploy. Leave it empty in production. Each value produces a real defect, which is how you prove a verifier catches it rather than assuming. ---
 
-| Value | What breaks | What should catch it |
-| --- | --- | --- |
-| `slow` | `/api/products` stalls 6 seconds | Budget / timeout checks |
-| `contract` | `price` returns a string, not a number | Contract validation |
-| `error` | `/api/products/[slug]` returns 500 | Route health |
-| `empty` | Product list comes back empty | Silent regression |
-| `stock` | Stock returns negative | Business logic |
+
+| Value      | What breaks                            | What should catch it    |
+| ---------- | -------------------------------------- | ----------------------- |
+| `slow`     | `/api/products` stalls 6 seconds       | Budget / timeout checks |
+| `contract` | `price` returns a string, not a number | Contract validation     |
+| `error`    | `/api/products/[slug]` returns 500     | Route health            |
+| `empty`    | Product list comes back empty          | Silent regression       |
+| `stock`    | Stock returns negative                 | Business logic          |
+
 
 `empty` is the nasty one: the page returns 200, nothing errors, there are just
 no products. A check that only looks at status codes will miss it entirely.
@@ -280,83 +321,14 @@ no products. A check that only looks at status codes will miss it entirely.
 Bind end-to-end tests to these `data-testid` values rather than to DOM
 structure:
 
-| Where | testid |
-| --- | --- |
-| Product card | `product-card`, `price` |
-| Product detail | `product-name`, `product-price`, `add-to-cart`, `qty` |
-| Listing | `result-count`, `sort`, `filters`, `apply-price`, `empty-state` |
-| Category tile | `category-tile` |
-| Cart | `cart-line`, `cart-count`, `subtotal`, `total` |
-| Forms | `contact-submit`, `contact-success`, `submit-login` |
 
-### Edge-case row
+| Where          | testid                                                          |
+| -------------- | --------------------------------------------------------------- |
+| Product card   | `product-card`, `price`                                         |
+| Product detail | `product-name`, `product-price`, `add-to-cart`, `qty`           |
+| Listing        | `result-count`, `sort`, `filters`, `apply-price`, `empty-state` |
+| Category tile  | `category-tile`                                                 |
+| Cart           | `cart-line`, `cart-count`, `subtotal`, `total`                  |
+| Forms          | `contact-submit`, `contact-success`, `submit-login`             |
 
-The seed deliberately includes one hostile record: *"Limited Run Hand-Hammered
-Copper-Plated Gooseneck Kettle (Numbered Series)"* — very long name, no image,
-zero stock, low rating, highest price. Cards and the detail page have to carry
-all of that without breaking. This is the row a visual regression test should
-watch.
 
----
-
-## 8. API contract
-
-Everything is JSON and `no-store`.
-
-| Endpoint | Method | Auth | Notes |
-| --- | --- | --- | --- |
-| `/api/health` | GET | — | `status`, `database`, `latencyMs`, `commit`, `environment` |
-| `/api/products` | GET | — | Filtering, sorting, pagination, `facets` |
-| `/api/products/[slug]` | GET | — | `product` + `related`, 404 when missing |
-| `/api/categories` | GET | — | With product counts |
-| `/api/cart` | GET · POST · DELETE | **Bearer** | Scoped to the Firebase UID |
-| `/api/checkout` | POST | **Bearer** | Body ignored; opens a Stripe session, returns `url` |
-| `/api/orders` | GET | **Bearer** | `?session_id=` for one order, otherwise the list |
-| `/api/webhooks/stripe` | POST | **Signature** | Stripe only; the sole path that marks an order paid |
-| `/api/contact` | POST | — | 422 returns per-field errors |
-
-`/api/products` query parameters: `category`, `brand`, `q`, `minPrice`,
-`maxPrice` (cents), `inStock`, `sort` (`newest` · `price_asc` · `price_desc` ·
-`rating`), `page`, `perPage` (1–48, default 12).
-
-Error bodies always take the same shape:
-
-```json
-{ "error": { "code": "invalid_range", "message": "…" } }
-```
-
-**Prices are integer cents** so there is no floating-point rounding drift.
-`14900` = $149.
-
----
-
-## 9. Project layout
-
-```
-app/
-  page.tsx                    home · hero, categories, featured
-  products/page.tsx           listing · filters, sorting, pagination
-  products/[slug]/page.tsx    detail · add to cart, related products
-  cart/page.tsx               cart · quantities, removal, checkout
-  checkout/success/page.tsx   order confirmation · polls until paid
-  contact/page.tsx            contact form
-  login/page.tsx              sign in, sign up, Google
-  api/…                       nine endpoints
-components/                   providers and interface pieces
-instrumentation.ts            OpenTelemetry registration (OTLP/HTTP protobuf)
-lib/
-  metrics.ts                  Analytics + Performance, lazily loaded
-  db.ts                       libSQL client
-  queries.ts                  all SQL, in one place
-  stripe.ts                   Stripe client · refuses live keys
-  guard.ts                    Bearer-token gate for protected routes
-  pricing.ts                  shipping rule, shared by client and server
-  types.ts                    the contracts
-  firebase-admin.ts           ID token verification
-  faults.ts                   fault injection
-db/
-  schema.sql · migrate.ts · seed.ts
-```
-
-Scripts: `npm run dev` · `build` · `typecheck` · `db:migrate` · `db:seed` ·
-`db:reset`.

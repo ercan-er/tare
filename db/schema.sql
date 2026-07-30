@@ -53,7 +53,9 @@ CREATE TABLE IF NOT EXISTS orders (
                     CHECK (status IN ('pending', 'paid', 'cancelled')),
   subtotal          INTEGER NOT NULL,               -- cents
   shipping          INTEGER NOT NULL,               -- cents
-  total             INTEGER NOT NULL,               -- cents
+  discount          INTEGER NOT NULL DEFAULT 0,      -- cents (kupon indirimi)
+  coupon            TEXT,                            -- uygulanan kupon kodu
+  total             INTEGER NOT NULL,               -- cents (subtotal + shipping - discount)
   currency          TEXT NOT NULL DEFAULT 'USD',
   stripe_session_id TEXT UNIQUE,
   created_at        TEXT NOT NULL,
@@ -71,3 +73,16 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 CREATE INDEX IF NOT EXISTS idx_orders_uid     ON orders(uid);
 CREATE INDEX IF NOT EXISTS idx_order_items_id ON order_items(order_id);
+
+CREATE TABLE IF NOT EXISTS reviews (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  uid        TEXT NOT NULL,                         -- firebase uid
+  author     TEXT NOT NULL,                         -- gorunecek isim
+  rating     INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  body       TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_reviews_product ON reviews(product_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_uid_product ON reviews(uid, product_id);

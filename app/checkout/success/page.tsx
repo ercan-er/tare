@@ -5,12 +5,9 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { useCart } from "@/components/cart-provider";
+import { useToast } from "@/components/toast-provider";
+import { useLocale } from "@/components/locale-provider";
 import type { Order } from "@/lib/types";
-
-const fmt = (cents: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
-  }).format(cents / 100);
 
 const MAX_ATTEMPTS = 10;
 const POLL_MS = 1500;
@@ -21,6 +18,8 @@ function SuccessInner() {
   const sessionId = useSearchParams().get("session_id");
   const { user, loading, token } = useAuth();
   const { refresh } = useCart();
+  const { toast } = useToast();
+  const { money: fmt } = useLocale();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [state, setState] = useState<State>("loading");
@@ -79,8 +78,16 @@ function SuccessInner() {
   // Odeme onaylandiginda sepet sunucuda bosaltilmis oluyor; basliktaki sayinin
   // da guncellenmesi icin istemci tarafini tazeliyoruz.
   useEffect(() => {
-    if (state === "done") void refresh();
-  }, [state, refresh]);
+    if (state === "done") {
+      void refresh();
+      // Kupon tek sefer icindi; sonraki sepete tasinmamasi icin temizle.
+      try { localStorage.removeItem("tare:coupon"); } catch { /* yok say */ }
+      toast("Order placed — thank you!", {
+        type: "success",
+        action: { label: "Track it", href: "/account" },
+      });
+    }
+  }, [state, refresh, toast]);
 
   if (loading || state === "loading") {
     return <div className="skeleton" style={{ height: 200 }} />;
@@ -144,6 +151,12 @@ function SuccessInner() {
             <span>Shipping</span>
             <span>{order.shipping === 0 ? "Free" : fmt(order.shipping)}</span>
           </div>
+          {order.discount > 0 && (
+            <div className="row" style={{ color: "var(--ok)" }}>
+              <span>Discount{order.coupon ? ` (${order.coupon})` : ""}</span>
+              <span>−{fmt(order.discount)}</span>
+            </div>
+          )}
           <div className="row total">
             <span>Total</span>
             <span data-testid="order-total">{fmt(order.total)}</span>
