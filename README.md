@@ -295,7 +295,7 @@ that is buffering, not a broken pipeline.
 
 
 
-## 7. Using this as a verification target v2 --
+## 7. Using this as a verification target v2
 
 
 
