@@ -362,6 +362,24 @@ select{
 .toast-x:hover{color:#fff}
 @keyframes toast-in{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
 
+/* ─────────── reviews ─────────── */
+.review-form{max-width:560px;display:flex;flex-direction:column;gap:12px;margin-bottom:30px;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card)}
+.review-form-row{display:flex;align-items:center;gap:14px}
+.review-text{width:100%;min-height:84px;resize:vertical;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);color:var(--ink);font:inherit}
+.review-text:focus{outline:none;border-color:var(--brass)}
+.star-input{display:inline-flex;gap:2px}
+.star-pick{background:none;border:none;padding:0 2px;font-size:24px;line-height:1;color:var(--line);transition:color .1s ease,transform .1s ease}
+.star-pick:hover{transform:scale(1.1)}
+.star-pick.on{color:var(--brass)}
+.review-list{display:flex;flex-direction:column;gap:0}
+.review{padding:16px 0;border-top:1px solid var(--line-soft)}
+.review:first-child{border-top:none}
+.review-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.review-head .stars{color:var(--brass);font-size:14px;letter-spacing:1px}
+.review-author{font-weight:600;font-size:14px}
+.review-date{font-size:12.5px;color:var(--faint);margin-left:auto}
+.review-body{margin:0;color:var(--ink-2);font-size:14.5px}
+
 @media (max-width:1000px){
   .hero-grid,.detail,.cart-grid{grid-template-columns:1fr;gap:30px}
   .shop{grid-template-columns:1fr}

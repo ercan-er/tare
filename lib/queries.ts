@@ -12,6 +12,7 @@ import type {
   Paginated,
   Product,
   ProductQuery,
+  Review,
 } from "./types";
 
 type Row = Record<string, unknown>;
@@ -527,4 +528,64 @@ export async function listOrders(uid: string, limit = 25): Promise<Order[]> {
     out.push(toOrder(row, await itemsOf(Number(row.id))));
   }
   return out;
+}
+
+// ─────────── reviews ───────────
+
+function toReview(r: Row): Review {
+  return {
+    id: Number(r.id),
+    productId: Number(r.product_id),
+    author: String(r.author),
+    rating: Number(r.rating),
+    body: String(r.body),
+    createdAt: String(r.created_at),
+  };
+}
+
+export async function productExists(id: number): Promise<boolean> {
+  const res = await db().execute({
+    sql: "SELECT 1 FROM products WHERE id = ? LIMIT 1",
+    args: [id],
+  });
+  return res.rows.length > 0;
+}
+
+export async function listReviews(productId: number, limit = 50): Promise<Review[]> {
+  const res = await db().execute({
+    sql: `SELECT * FROM reviews WHERE product_id = ?
+           ORDER BY created_at DESC LIMIT ?`,
+    args: [productId, limit],
+  });
+  return res.rows.map(toReview);
+}
+
+/**
+ * Kullanici basina urun basina tek yorum. Ayni kullanici tekrar gonderirse
+ * mevcut yorumu gunceller (uid, product_id benzersiz index'i sayesinde).
+ */
+export async function upsertReview(input: {
+  productId: number;
+  uid: string;
+  author: string;
+  rating: number;
+  body: string;
+}): Promise<Review> {
+  const now = new Date().toISOString();
+  await db().execute({
+    sql: `INSERT INTO reviews (product_id, uid, author, rating, body, created_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(uid, product_id)
+          DO UPDATE SET rating = excluded.rating,
+                        body = excluded.body,
+                        author = excluded.author,
+                        created_at = excluded.created_at`,
+    args: [input.productId, input.uid, input.author, input.rating, input.body, now],
+  });
+
+  const res = await db().execute({
+    sql: "SELECT * FROM reviews WHERE uid = ? AND product_id = ?",
+    args: [input.uid, input.productId],
+  });
+  return toReview(res.rows[0]);
 }

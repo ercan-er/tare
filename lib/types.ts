@@ -84,6 +84,15 @@ export type Order = {
   items: OrderItem[];
 };
 
+export type Review = {
+  id: number;
+  productId: number;
+  author: string;
+  rating: number;      // 1–5
+  body: string;
+  createdAt: string;
+};
+
 export type ApiError = {
   error: { code: string; message: string };
 };

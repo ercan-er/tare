@@ -8,6 +8,7 @@ import { ProductCard } from "@/components/product-card";
 import { Stars } from "@/components/stars";
 import { TrackProductView } from "@/components/track-view";
 import { RecordRecentView, RecentlyViewed } from "@/components/recently-viewed";
+import { ProductReviews } from "@/components/product-reviews";
 
 export const dynamic = "force-dynamic";
 
@@ -124,6 +125,8 @@ export default async function ProductPage({
           </table>
         </div>
       </div>
+
+      <ProductReviews productId={product.id} />
 
       {related.length > 0 && (
         <section className="sec" style={{ borderBottom: "none" }}>
