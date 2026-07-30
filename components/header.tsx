@@ -8,6 +8,7 @@ import { useCart } from "./cart-provider";
 import { useWishlist } from "./wishlist-provider";
 import { useLocale } from "./locale-provider";
 import { LanguageSwitcher } from "./language-switcher";
+import { ThemeToggle } from "./theme-toggle";
 
 const LINKS = [
   { href: "/products", key: "nav.shop" },
@@ -210,6 +211,7 @@ export function Header() {
           )}
 
           <LanguageSwitcher />
+          <ThemeToggle />
         </div>
       </div>
     </header>
