@@ -15,9 +15,9 @@ const DEMO_INSTANT_PAID =
 /**
  * Sepeti "pending" bir siparise cevirir ve Stripe Checkout oturumu acar.
  *
- * Istek govdesi bilerek okunmuyor. Tutar, adet ve urun bilgisinin tamami
- * sunucuda veritabanindan hesaplaniyor; tarayicidan gelen bir fiyat olsaydi
- * kullanici onu degistirip istedigi tutari odeyebilirdi.
+ * Govdeden yalnizca kupon KODU okunuyor; tutar, adet, fiyat ve indirimin
+ * tamami sunucuda veritabanindan hesaplaniyor. Tarayicidan bir tutar
+ * gelseydi kullanici onu degistirip istedigi fiyati odeyebilirdi.
  */
 export async function POST(req: Request) {
   const { user, response } = await requireUser(req);
@@ -31,7 +31,16 @@ export async function POST(req: Request) {
     );
   }
 
-  const result = await createPendingOrder(user.uid, user.email);
+  // Yalnizca kupon kodunu okuyoruz (tutar degil). Govde bos olabilir.
+  let couponCode: string | null = null;
+  try {
+    const body = (await req.json()) as { coupon?: unknown };
+    if (typeof body?.coupon === "string") couponCode = body.coupon;
+  } catch {
+    /* govde yok/gecersiz: kuponsuz devam */
+  }
+
+  const result = await createPendingOrder(user.uid, user.email, couponCode);
   if (!result.ok) {
     return jsonError(
       result.code === "empty_cart" ? 400 : 409,
@@ -56,10 +65,29 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Indirim varsa Stripe icin tek seferlik bir kupon olusturup oturuma
+    // ekliyoruz. Tutar yine sunucudan (order.discount) geliyor.
+    const discounts =
+      order.discount > 0
+        ? [
+            {
+              coupon: (
+                await stripe().coupons.create({
+                  amount_off: order.discount,
+                  currency: "usd",
+                  duration: "once",
+                  name: order.coupon ?? "Discount",
+                })
+              ).id,
+            },
+          ]
+        : undefined;
+
     const session = await stripe().checkout.sessions.create({
       mode: "payment",
       client_reference_id: String(order.id),
       customer_email: user.email ?? undefined,
+      discounts,
       line_items: order.items.map((i) => ({
         quantity: i.quantity,
         price_data: {

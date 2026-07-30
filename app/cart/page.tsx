@@ -6,6 +6,10 @@ import { useCart } from "@/components/cart-provider";
 import { useEffect, useState } from "react";
 import { trackViewCart } from "@/lib/metrics";
 import { shippingFor } from "@/lib/pricing";
+import { evaluateCoupon } from "@/lib/coupons";
+import { useToast } from "@/components/toast-provider";
+
+const COUPON_KEY = "tare:coupon";
 
 const fmt = (cents: number) =>
   new Intl.NumberFormat("en-US", {
@@ -15,12 +19,45 @@ const fmt = (cents: number) =>
 export default function CartPage() {
   const { user, loading, token } = useAuth();
   const { cart, setLine, clear, busy, error } = useCart();
+  const { toast } = useToast();
   const [checkingOut, setCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  const [couponInput, setCouponInput] = useState("");
+  const [couponCode, setCouponCode] = useState<string | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
 
   useEffect(() => {
     if (cart.itemCount > 0) void trackViewCart(cart.subtotal, cart.itemCount);
   }, [cart.itemCount, cart.subtotal]);
+
+  // Uygulanan kuponu diskten geri yukle.
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COUPON_KEY);
+      if (saved) { setCouponCode(saved); setCouponInput(saved); }
+    } catch { /* yok say */ }
+  }, []);
+
+  // Kodu her zaman guncel subtotal'a gore degerlendir (min tutar degisebilir).
+  const couponEval = couponCode ? evaluateCoupon(couponCode, cart.subtotal) : null;
+  const discount = couponEval?.ok ? couponEval.discount : 0;
+
+  function applyCoupon() {
+    const res = evaluateCoupon(couponInput, cart.subtotal);
+    if (!res.ok) { setCouponError(res.message); return; }
+    setCouponCode(res.code);
+    setCouponError(null);
+    try { localStorage.setItem(COUPON_KEY, res.code); } catch { /* yok say */ }
+    toast(`Coupon ${res.code} applied — ${res.label}`, { type: "success" });
+  }
+
+  function removeCoupon() {
+    setCouponCode(null);
+    setCouponInput("");
+    setCouponError(null);
+    try { localStorage.removeItem(COUPON_KEY); } catch { /* yok say */ }
+  }
 
   async function startCheckout() {
     setCheckingOut(true);
@@ -32,10 +69,11 @@ export default function CartPage() {
         return;
       }
 
-      // Govde gondermiyoruz: sunucu sepeti ve tutarlari kendisi okuyor.
+      // Govdede yalnizca kupon KODU var; tutarlari sunucu kendisi hesapliyor.
       const res = await fetch("/api/checkout", {
         method: "POST",
-        headers: { authorization: `Bearer ${t}` },
+        headers: { authorization: `Bearer ${t}`, "content-type": "application/json" },
+        body: JSON.stringify(couponCode ? { coupon: couponCode } : {}),
       });
       const data = await res.json();
 
@@ -152,9 +190,55 @@ export default function CartPage() {
                 Free shipping on orders over $75.
               </p>
             )}
+
+            {discount > 0 && (
+              <div className="row" style={{ color: "var(--ok)" }}>
+                <span>Discount ({couponCode})</span>
+                <span data-testid="discount">−{fmt(discount)}</span>
+              </div>
+            )}
+
+            <div className="coupon">
+              {couponCode ? (
+                <div className="coupon-applied" data-testid="coupon-applied">
+                  <span>
+                    {couponEval?.ok
+                      ? <>🏷️ <strong>{couponCode}</strong> · {couponEval.label}</>
+                      : <>🏷️ <strong>{couponCode}</strong> · <span style={{ color: "var(--danger)" }}>{(couponEval && !couponEval.ok) ? couponEval.message : "not applicable"}</span></>}
+                  </span>
+                  <button className="btn ghost sm" onClick={removeCoupon}>Remove</button>
+                </div>
+              ) : (
+                <>
+                  <div className="coupon-row">
+                    <input
+                      type="text"
+                      placeholder="Discount code"
+                      value={couponInput}
+                      onChange={(e) => { setCouponInput(e.target.value); setCouponError(null); }}
+                      onKeyDown={(e) => { if (e.key === "Enter") applyCoupon(); }}
+                      aria-label="Discount code"
+                      data-testid="coupon-input"
+                    />
+                    <button
+                      className="btn ghost sm"
+                      onClick={applyCoupon}
+                      disabled={!couponInput.trim()}
+                      data-testid="coupon-apply"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                  {couponError && (
+                    <p style={{ fontSize: 12.5, color: "var(--danger)", margin: "6px 0 0" }}>{couponError}</p>
+                  )}
+                </>
+              )}
+            </div>
+
             <div className="row total">
               <span>Total</span>
-              <span data-testid="total">{fmt(cart.subtotal + shipping)}</span>
+              <span data-testid="total">{fmt(Math.max(0, cart.subtotal + shipping - discount))}</span>
             </div>
             <button
               className="btn block"

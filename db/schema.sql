@@ -53,7 +53,9 @@ CREATE TABLE IF NOT EXISTS orders (
                     CHECK (status IN ('pending', 'paid', 'cancelled')),
   subtotal          INTEGER NOT NULL,               -- cents
   shipping          INTEGER NOT NULL,               -- cents
-  total             INTEGER NOT NULL,               -- cents
+  discount          INTEGER NOT NULL DEFAULT 0,      -- cents (kupon indirimi)
+  coupon            TEXT,                            -- uygulanan kupon kodu
+  total             INTEGER NOT NULL,               -- cents (subtotal + shipping - discount)
   currency          TEXT NOT NULL DEFAULT 'USD',
   stripe_session_id TEXT UNIQUE,
   created_at        TEXT NOT NULL,

@@ -83,6 +83,8 @@ function SuccessInner() {
   useEffect(() => {
     if (state === "done") {
       void refresh();
+      // Kupon tek sefer icindi; sonraki sepete tasinmamasi icin temizle.
+      try { localStorage.removeItem("tare:coupon"); } catch { /* yok say */ }
       toast("Order placed — thank you!", {
         type: "success",
         action: { label: "Track it", href: "/account" },
@@ -152,6 +154,12 @@ function SuccessInner() {
             <span>Shipping</span>
             <span>{order.shipping === 0 ? "Free" : fmt(order.shipping)}</span>
           </div>
+          {order.discount > 0 && (
+            <div className="row" style={{ color: "var(--ok)" }}>
+              <span>Discount{order.coupon ? ` (${order.coupon})` : ""}</span>
+              <span>−{fmt(order.discount)}</span>
+            </div>
+          )}
           <div className="row total">
             <span>Total</span>
             <span data-testid="order-total">{fmt(order.total)}</span>

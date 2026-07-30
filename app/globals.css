@@ -380,6 +380,13 @@ select{
 .review-date{font-size:12.5px;color:var(--faint);margin-left:auto}
 .review-body{margin:0;color:var(--ink-2);font-size:14.5px}
 
+/* ─────────── coupon (cart summary) ─────────── */
+.coupon{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)}
+.coupon-row{display:flex;gap:8px}
+.coupon-row input{flex:1;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);color:var(--ink);font:inherit;text-transform:uppercase}
+.coupon-row input:focus{outline:none;border-color:var(--brass)}
+.coupon-applied{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--ink-2)}
+
 @media (max-width:1000px){
   .hero-grid,.detail,.cart-grid{grid-template-columns:1fr;gap:30px}
   .shop{grid-template-columns:1fr}

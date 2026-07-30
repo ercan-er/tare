@@ -77,6 +77,8 @@ export type Order = {
   email: string | null;
   subtotal: number;
   shipping: number;
+  discount: number;        // cents, kupon indirimi (0 = yok)
+  coupon: string | null;   // uygulanan kupon kodu
   total: number;
   currency: "USD";
   createdAt: string;

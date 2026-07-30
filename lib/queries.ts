@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "./db";
 import { isFault } from "./faults";
 import { shippingFor } from "./pricing";
+import { evaluateCoupon } from "./coupons";
 import type {
   Cart,
   CartLine,
@@ -320,6 +321,8 @@ function toOrder(r: Row, items: OrderItem[]): Order {
     email: r.email ? String(r.email) : null,
     subtotal: Number(r.subtotal),
     shipping: Number(r.shipping),
+    discount: Number(r.discount ?? 0),
+    coupon: r.coupon ? String(r.coupon) : null,
     total: Number(r.total),
     currency: "USD",
     createdAt: String(r.created_at),
@@ -341,7 +344,8 @@ export type CheckoutResult =
  */
 export async function createPendingOrder(
   uid: string,
-  email: string | null
+  email: string | null,
+  couponCode?: string | null
 ): Promise<CheckoutResult> {
   const cart = await getCart(uid);
 
@@ -363,13 +367,25 @@ export async function createPendingOrder(
 
   const subtotal = cart.subtotal;
   const shipping = shippingFor(subtotal);
-  const total = subtotal + shipping;
+
+  // Indirim de tutar gibi sunucuda hesaplaniyor; istemci yalnizca kodu yolladi.
+  let discount = 0;
+  let coupon: string | null = null;
+  if (couponCode && couponCode.trim()) {
+    const res = evaluateCoupon(couponCode, subtotal);
+    if (res.ok && res.discount > 0) {
+      discount = res.discount;
+      coupon = res.code;
+    }
+  }
+
+  const total = subtotal + shipping - discount;
   const now = new Date().toISOString();
 
   const res = await db().execute({
-    sql: `INSERT INTO orders (uid, email, status, subtotal, shipping, total, currency, created_at)
-          VALUES (?, ?, 'pending', ?, ?, ?, 'USD', ?)`,
-    args: [uid, email, subtotal, shipping, total, now],
+    sql: `INSERT INTO orders (uid, email, status, subtotal, shipping, discount, coupon, total, currency, created_at)
+          VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, 'USD', ?)`,
+    args: [uid, email, subtotal, shipping, discount, coupon, total, now],
   });
   const orderId = Number(res.lastInsertRowid ?? 0);
 
@@ -390,6 +406,8 @@ export async function createPendingOrder(
       email,
       subtotal,
       shipping,
+      discount,
+      coupon,
       total,
       currency: "USD",
       createdAt: now,
