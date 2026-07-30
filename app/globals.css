@@ -321,6 +321,24 @@ select{
 @keyframes story-fade{from{opacity:0}to{opacity:1}}
 @keyframes story-rise{from{transform:translateY(40px);opacity:.4}to{transform:translateY(0);opacity:1}}
 
+/* story icindeki urun etiketi */
+.story-product{pointer-events:auto;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.26);border-radius:12px;padding:8px;margin-bottom:14px}
+.story-product-main{display:flex;align-items:center;gap:10px;flex:1;min-width:0}
+.story-product-thumb{width:44px;height:44px;border-radius:8px;overflow:hidden;flex:none;background:rgba(0,0,0,.25)}
+.story-product-thumb img{width:100%;height:100%;object-fit:cover}
+.story-product-info{display:flex;flex-direction:column;min-width:0}
+.story-product-name{color:#fff;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.story-product-price{color:rgba(255,255,255,.85);font-size:13px}
+
+/* ─────────── wishlist / favourites ─────────── */
+.wish-btn{background:none;border:none;padding:0;cursor:pointer;color:var(--muted);line-height:1;display:inline-flex;align-items:center;justify-content:center;transition:transform .12s ease,color .12s ease}
+.wish-btn:hover{transform:scale(1.12)}
+.wish-btn.on{color:var(--danger)}
+.wish-btn.on-card{position:absolute;top:8px;right:8px;z-index:2;width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.92);border:1px solid var(--line);font-size:16px;box-shadow:0 1px 3px rgba(20,32,27,.12)}
+.wish-btn.on-card:hover{background:#fff}
+.wish-btn.on-story{width:38px;height:38px;flex:none;border-radius:50%;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.32);color:#fff;font-size:17px}
+.wish-btn.on-story.on{color:#FF5470;background:#fff}
+
 @media (max-width:1000px){
   .hero-grid,.detail,.cart-grid{grid-template-columns:1fr;gap:30px}
   .shop{grid-template-columns:1fr}

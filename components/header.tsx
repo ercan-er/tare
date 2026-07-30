@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 import { useAuth } from "./auth-provider";
 import { useCart } from "./cart-provider";
+import { useWishlist } from "./wishlist-provider";
 
 const LINKS = [
   { href: "/products", label: "Shop" },
@@ -42,6 +43,7 @@ export function Header() {
   const path = usePathname();
   const { user, signOut, loading } = useAuth();
   const { cart } = useCart();
+  const { count: wishCount } = useWishlist();
 
   return (
     <header className="hdr">
@@ -62,6 +64,11 @@ export function Header() {
           <Suspense fallback={<div className="search" />}>
             <SearchBox />
           </Suspense>
+
+          <Link href="/wishlist" className="icon-btn" aria-label="Favourites" data-active={path === "/wishlist"}>
+            <span aria-hidden style={{ fontSize: 15 }}>♥</span>
+            {wishCount > 0 && <span className="badge">{wishCount}</span>}
+          </Link>
 
           <Link href="/cart" className="icon-btn" aria-label="Cart">
             Cart

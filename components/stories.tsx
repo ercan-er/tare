@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { WishlistButton } from "./wishlist-button";
 
 // Kendi "Storyly"miz: Instagram tarzi reklam hikayeleri. Tamamen sunumsal,
 // veri asagida sabit. Gorseller urun seed'iyle ayni Unsplash ID'leri.
@@ -10,6 +11,22 @@ const cover = (id: string) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=200&h=200&q=70`;
 const portrait = (id: string) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&h=1600&q=75`;
+const thumb = (id: string) =>
+  `https://images.unsplash.com/${id}?auto=format&fit=crop&w=200&h=200&q=70`;
+
+const fmt = (cents: number) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency", currency: "USD", maximumFractionDigits: 0,
+  }).format(cents / 100);
+
+// Slaytta etiketlenen urun. slug ile calistigi icin favorilere eklemek
+// numaralı bir id gerektirmez (seed'deki slug'larla eslesir).
+type SlideProduct = {
+  slug: string;
+  name: string;
+  price: number; // cents
+  imageId: string;
+};
 
 type Slide = {
   photo: string;
@@ -19,6 +36,7 @@ type Slide = {
   body?: string;
   cta: string;
   href: string;
+  product?: SlideProduct;
 };
 
 type Story = {
@@ -53,6 +71,12 @@ const STORIES: Story[] = [
         body: "Every unit dialed and tested before it ships.",
         cta: "See the range",
         href: "/products?sort=newest",
+        product: {
+          slug: "tare-k6-hand-grinder-max",
+          name: "Tare K6 Hand Grinder Max",
+          price: 19900,
+          imageId: "photo-1610889556528-9a770e32642f",
+        },
       },
     ],
   },
@@ -70,6 +94,12 @@ const STORIES: Story[] = [
         body: "Precision to 0.1g. Now for less.",
         cta: "Grab the deal",
         href: "/products?category=scales",
+        product: {
+          slug: "coffee-scale-pro",
+          name: "Coffee Scale Pro",
+          price: 8200,
+          imageId: "photo-1516224498413-84ecf3a1e7fd",
+        },
       },
     ],
   },
@@ -87,6 +117,12 @@ const STORIES: Story[] = [
         body: "From espresso fine to French press coarse.",
         cta: "Browse grinders",
         href: "/products?category=grinders",
+        product: {
+          slug: "titan-espresso-grinder",
+          name: "Titan Espresso Grinder",
+          price: 54900,
+          imageId: "photo-1587734195503-904fca47e0e9",
+        },
       },
     ],
   },
@@ -173,6 +209,12 @@ const STORIES: Story[] = [
         body: "Scale, dripper and filters, boxed together.",
         cta: "Shop gift sets",
         href: "/products?category=accessories",
+        product: {
+          slug: "studio-coffee-scale",
+          name: "Studio Coffee Scale",
+          price: 9900,
+          imageId: "photo-1516224498413-84ecf3a1e7fd",
+        },
       },
       {
         photo: portrait("photo-1509042239860-f550ce710b93"),
@@ -188,6 +230,7 @@ const STORIES: Story[] = [
 ];
 
 const DURATION = 5000; // ms, her slayt
+const SEEN_KEY = "tare:stories-seen";
 
 export function Stories() {
   const [open, setOpen] = useState<number | null>(null);
@@ -197,8 +240,27 @@ export function Stories() {
 
   const close = useCallback(() => setOpen(null), []);
 
+  // Gorulenler diskte kalir; sayfa yenilense de halkalar soluk kalir.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SEEN_KEY);
+      if (raw) setSeen(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      /* yok say */
+    }
+  }, []);
+
   const markSeen = useCallback((id: string) => {
-    setSeen((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+    setSeen((prev) => {
+      if (prev.has(id)) return prev;
+      const nextSet = new Set(prev).add(id);
+      try {
+        localStorage.setItem(SEEN_KEY, JSON.stringify([...nextSet]));
+      } catch {
+        /* yok say */
+      }
+      return nextSet;
+    });
   }, []);
 
   const openStory = useCallback((i: number) => {
@@ -349,6 +411,34 @@ export function Stories() {
               <span className="story-eyebrow">{current.eyebrow}</span>
               <h2 className="story-heading">{current.heading}</h2>
               {current.body && <p className="story-body">{current.body}</p>}
+
+              {current.product && (
+                <div className="story-product" onClick={(e) => e.stopPropagation()}>
+                  <Link
+                    href={`/products/${current.product.slug}`}
+                    className="story-product-main"
+                    onClick={close}
+                  >
+                    <span className="story-product-thumb">
+                      <img src={thumb(current.product.imageId)} alt="" />
+                    </span>
+                    <span className="story-product-info">
+                      <span className="story-product-name">{current.product.name}</span>
+                      <span className="story-product-price">{fmt(current.product.price)}</span>
+                    </span>
+                  </Link>
+                  <WishlistButton
+                    className="on-story"
+                    item={{
+                      slug: current.product.slug,
+                      name: current.product.name,
+                      price: current.product.price,
+                      imageUrl: thumb(current.product.imageId),
+                    }}
+                  />
+                </div>
+              )}
+
               <Link href={current.href} className="btn story-cta" onClick={close}>
                 {current.cta}
               </Link>

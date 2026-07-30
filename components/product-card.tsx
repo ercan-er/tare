@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { formatPrice } from "@/lib/db";
 import { Stars } from "./stars";
+import { WishlistButton } from "./wishlist-button";
 
 export function ProductCard({ p }: { p: Product }) {
   const out = p.stock <= 0;
@@ -12,6 +13,10 @@ export function ProductCard({ p }: { p: Product }) {
       <div className="p-thumb">
         {out && <span className="p-flag out">Sold out</span>}
         {low && <span className="p-flag low">{p.stock} left</span>}
+        <WishlistButton
+          className="on-card"
+          item={{ slug: p.slug, name: p.name, price: p.price, imageUrl: p.imageUrl, brand: p.brand }}
+        />
         {p.imageUrl ? (
           <img src={p.imageUrl} alt={p.name} loading="lazy" />
         ) : (

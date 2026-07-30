@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 import { CartProvider } from "@/components/cart-provider";
+import { WishlistProvider } from "@/components/wishlist-provider";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { FirebaseMetrics } from "@/components/firebase-metrics";
@@ -36,10 +37,12 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <CartProvider>
-            <FirebaseMetrics />
-            <Header />
-            <main>{children}</main>
-            <Footer />
+            <WishlistProvider>
+              <FirebaseMetrics />
+              <Header />
+              <main>{children}</main>
+              <Footer />
+            </WishlistProvider>
           </CartProvider>
         </AuthProvider>
       </body>
