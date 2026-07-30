@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "./auth-provider";
 import { useCart } from "./cart-provider";
+import { useToast } from "./toast-provider";
 import { trackAddToCart } from "@/lib/metrics";
 
 type Props = {
@@ -18,8 +19,8 @@ type Props = {
 export function AddToCart({ productId, stock, name, price, brand, category }: Props) {
   const { user } = useAuth();
   const { setLine, cart, busy, error } = useCart();
+  const { toast } = useToast();
   const [qty, setQty] = useState(1);
-  const [added, setAdded] = useState(false);
 
   const inCart = cart.lines.find((l) => l.productId === productId)?.quantity ?? 0;
   const out = stock <= 0;
@@ -62,8 +63,10 @@ export function AddToCart({ productId, stock, name, price, brand, category }: Pr
                 { id: productId, name, price, brand, category },
                 qty
               );
-              setAdded(true);
-              setTimeout(() => setAdded(false), 2400);
+              toast(`${qty} × ${name} added to cart`, {
+                type: "success",
+                action: { label: "View cart", href: "/cart" },
+              });
             }
           }}
         >
@@ -76,7 +79,6 @@ export function AddToCart({ productId, stock, name, price, brand, category }: Pr
           {inCart} in your cart. <Link href="/cart" style={{ textDecoration: "underline" }}>View cart</Link>
         </p>
       )}
-      {added && <div className="alert ok" style={{ maxWidth: 420 }}>Added to your cart.</div>}
       {error && <div className="alert err" style={{ maxWidth: 420 }}>{error}</div>}
     </div>
   );

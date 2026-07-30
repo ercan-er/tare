@@ -1,6 +1,7 @@
 "use client";
 
 import { useWishlist, type WishItem } from "./wishlist-provider";
+import { useToast } from "./toast-provider";
 
 /**
  * Kalp butonu. Bir <Link> icinde de kullanilabilsin diye tiklamada
@@ -14,6 +15,7 @@ export function WishlistButton({
   className?: string;
 }) {
   const { has, toggle } = useWishlist();
+  const { toast } = useToast();
   const active = has(item.slug);
 
   return (
@@ -27,6 +29,10 @@ export function WishlistButton({
         e.preventDefault();
         e.stopPropagation();
         toggle(item);
+        toast(
+          active ? "Removed from favourites" : "Saved to favourites",
+          active ? { type: "info" } : { type: "success", action: { label: "View", href: "/wishlist" } }
+        );
       }}
     >
       <span aria-hidden>{active ? "♥" : "♡"}</span>

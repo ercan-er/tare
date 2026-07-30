@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { useCart } from "@/components/cart-provider";
+import { useToast } from "@/components/toast-provider";
 import type { Order } from "@/lib/types";
 
 const fmt = (cents: number) =>
@@ -21,6 +22,7 @@ function SuccessInner() {
   const sessionId = useSearchParams().get("session_id");
   const { user, loading, token } = useAuth();
   const { refresh } = useCart();
+  const { toast } = useToast();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [state, setState] = useState<State>("loading");
@@ -79,8 +81,14 @@ function SuccessInner() {
   // Odeme onaylandiginda sepet sunucuda bosaltilmis oluyor; basliktaki sayinin
   // da guncellenmesi icin istemci tarafini tazeliyoruz.
   useEffect(() => {
-    if (state === "done") void refresh();
-  }, [state, refresh]);
+    if (state === "done") {
+      void refresh();
+      toast("Order placed — thank you!", {
+        type: "success",
+        action: { label: "Track it", href: "/account" },
+      });
+    }
+  }, [state, refresh, toast]);
 
   if (loading || state === "loading") {
     return <div className="skeleton" style={{ height: 200 }} />;

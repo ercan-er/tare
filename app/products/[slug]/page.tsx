@@ -7,6 +7,7 @@ import { AddToCart } from "@/components/add-to-cart";
 import { ProductCard } from "@/components/product-card";
 import { Stars } from "@/components/stars";
 import { TrackProductView } from "@/components/track-view";
+import { RecordRecentView, RecentlyViewed } from "@/components/recently-viewed";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,15 @@ export default async function ProductPage({
         price={product.price}
         brand={product.brand}
         category={product.categoryName}
+      />
+      <RecordRecentView
+        item={{
+          slug: product.slug,
+          name: product.name,
+          price: product.price,
+          imageUrl: product.imageUrl,
+          brand: product.brand,
+        }}
       />
       <div className="crumbs">
         <Link href="/">Home</Link> ·{" "}
@@ -130,6 +140,8 @@ export default async function ProductPage({
           </div>
         </section>
       )}
+
+      <RecentlyViewed excludeSlug={product.slug} bare />
     </div>
   );
 }

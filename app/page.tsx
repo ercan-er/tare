@@ -2,6 +2,7 @@ import Link from "next/link";
 import { listCategories, featuredProducts } from "@/lib/queries";
 import { ProductCard } from "@/components/product-card";
 import { Stories } from "@/components/stories";
+import { RecentlyViewed } from "@/components/recently-viewed";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,8 @@ export default async function HomePage() {
           )}
         </div>
       </section>
+
+      <RecentlyViewed />
     </>
   );
 }

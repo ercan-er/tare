@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 import { CartProvider } from "@/components/cart-provider";
 import { WishlistProvider } from "@/components/wishlist-provider";
+import { ToastProvider } from "@/components/toast-provider";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { FirebaseMetrics } from "@/components/firebase-metrics";
@@ -38,10 +39,12 @@ export default function RootLayout({
         <AuthProvider>
           <CartProvider>
             <WishlistProvider>
-              <FirebaseMetrics />
-              <Header />
-              <main>{children}</main>
-              <Footer />
+              <ToastProvider>
+                <FirebaseMetrics />
+                <Header />
+                <main>{children}</main>
+                <Footer />
+              </ToastProvider>
             </WishlistProvider>
           </CartProvider>
         </AuthProvider>
