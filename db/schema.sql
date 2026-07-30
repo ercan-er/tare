@@ -83,5 +83,4 @@ CREATE TABLE IF NOT EXISTS reviews (
 );
 
 CREATE INDEX IF NOT EXISTS idx_reviews_product ON reviews(product_id);
--- Kullanici basina urun basina tek yorum; tekrar gonderim gunceller.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_reviews_uid_product ON reviews(uid, product_id);
