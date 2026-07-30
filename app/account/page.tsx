@@ -4,12 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { ShipmentTracker } from "@/components/shipment-tracker";
+import { useLocale } from "@/components/locale-provider";
 import type { Order } from "@/lib/types";
-
-const fmt = (cents: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
-  }).format(cents / 100);
 
 const fmtDate = (iso: string) => {
   const d = new Date(iso);
@@ -34,6 +30,7 @@ type LoadState = "loading" | "ready" | "error";
 
 export default function AccountPage() {
   const { user, loading, token } = useAuth();
+  const { money: fmt } = useLocale();
   const [orders, setOrders] = useState<Order[]>([]);
   const [state, setState] = useState<LoadState>("loading");
 

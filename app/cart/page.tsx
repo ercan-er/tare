@@ -8,18 +8,15 @@ import { trackViewCart } from "@/lib/metrics";
 import { shippingFor } from "@/lib/pricing";
 import { evaluateCoupon } from "@/lib/coupons";
 import { useToast } from "@/components/toast-provider";
+import { useLocale } from "@/components/locale-provider";
 
 const COUPON_KEY = "tare:coupon";
-
-const fmt = (cents: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
-  }).format(cents / 100);
 
 export default function CartPage() {
   const { user, loading, token } = useAuth();
   const { cart, setLine, clear, busy, error } = useCart();
   const { toast } = useToast();
+  const { money: fmt } = useLocale();
   const [checkingOut, setCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
 

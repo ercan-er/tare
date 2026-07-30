@@ -6,12 +6,8 @@ import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/components/auth-provider";
 import { useCart } from "@/components/cart-provider";
 import { useToast } from "@/components/toast-provider";
+import { useLocale } from "@/components/locale-provider";
 import type { Order } from "@/lib/types";
-
-const fmt = (cents: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
-  }).format(cents / 100);
 
 const MAX_ATTEMPTS = 10;
 const POLL_MS = 1500;
@@ -23,6 +19,7 @@ function SuccessInner() {
   const { user, loading, token } = useAuth();
   const { refresh } = useCart();
   const { toast } = useToast();
+  const { money: fmt } = useLocale();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [state, setState] = useState<State>("loading");

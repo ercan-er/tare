@@ -77,6 +77,16 @@ img{max-width:100%;display:block}
   font-size:11px;font-weight:600;display:inline-flex;align-items:center;justify-content:center;
 }
 
+/* dil degistirici (TR/EN) */
+.lang{display:inline-flex;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.lang-opt{
+  padding:8px 10px;font-size:12px;font-weight:600;letter-spacing:.02em;
+  background:var(--card);color:var(--muted);border:0;cursor:pointer;line-height:1;
+}
+.lang-opt+.lang-opt{border-left:1px solid var(--line)}
+.lang-opt:hover{color:var(--ink)}
+.lang-opt.on{background:var(--ink);color:var(--paper)}
+
 /* ─────────── buttons ─────────── */
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;

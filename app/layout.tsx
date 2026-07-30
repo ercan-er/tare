@@ -4,6 +4,7 @@ import { AuthProvider } from "@/components/auth-provider";
 import { CartProvider } from "@/components/cart-provider";
 import { WishlistProvider } from "@/components/wishlist-provider";
 import { ToastProvider } from "@/components/toast-provider";
+import { LocaleProvider } from "@/components/locale-provider";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { FirebaseMetrics } from "@/components/firebase-metrics";
@@ -36,18 +37,20 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <AuthProvider>
-          <CartProvider>
-            <WishlistProvider>
-              <ToastProvider>
-                <FirebaseMetrics />
-                <Header />
-                <main>{children}</main>
-                <Footer />
-              </ToastProvider>
-            </WishlistProvider>
-          </CartProvider>
-        </AuthProvider>
+        <LocaleProvider>
+          <AuthProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <ToastProvider>
+                  <FirebaseMetrics />
+                  <Header />
+                  <main>{children}</main>
+                  <Footer />
+                </ToastProvider>
+              </WishlistProvider>
+            </CartProvider>
+          </AuthProvider>
+        </LocaleProvider>
       </body>
     </html>
   );

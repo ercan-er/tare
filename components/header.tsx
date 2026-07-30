@@ -6,22 +6,20 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
 import { useCart } from "./cart-provider";
 import { useWishlist } from "./wishlist-provider";
+import { useLocale } from "./locale-provider";
+import { LanguageSwitcher } from "./language-switcher";
 
 const LINKS = [
-  { href: "/products", label: "Shop" },
-  { href: "/#categories", label: "Categories" },
-  { href: "/contact", label: "Contact" },
+  { href: "/products", key: "nav.shop" },
+  { href: "/#categories", key: "nav.categories" },
+  { href: "/contact", key: "nav.contact" },
 ];
 
 type Suggestion = { slug: string; name: string; price: number; imageUrl: string | null };
 
-const money = (cents: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
-  }).format(cents / 100);
-
 function SearchBox() {
   const router = useRouter();
+  const { t, money } = useLocale();
   const sp = useSearchParams();
   const [q, setQ] = useState(sp.get("q") ?? "");
   const [results, setResults] = useState<Suggestion[]>([]);
@@ -111,8 +109,8 @@ function SearchBox() {
           onChange={(e) => { setQ(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder="Search products"
-          aria-label="Search products"
+          placeholder={t("search.placeholder")}
+          aria-label={t("search.placeholder")}
           role="combobox"
           aria-expanded={showDropdown}
           aria-autocomplete="list"
@@ -140,7 +138,7 @@ function SearchBox() {
           ))}
 
           {!loading && results.length === 0 && (
-            <div className="ac-empty">No matches for “{q.trim()}”</div>
+            <div className="ac-empty">{t("search.nomatch")} “{q.trim()}”</div>
           )}
 
           <button
@@ -149,7 +147,7 @@ function SearchBox() {
             onMouseEnter={() => setActive(allIndex)}
             onClick={runSearch}
           >
-            Search for “{q.trim()}” →
+            {t("search.for")} “{q.trim()}” →
           </button>
         </div>
       )}
@@ -162,6 +160,7 @@ export function Header() {
   const { user, signOut, loading } = useAuth();
   const { cart } = useCart();
   const { count: wishCount } = useWishlist();
+  const { t } = useLocale();
 
   return (
     <header className="hdr">
@@ -173,7 +172,7 @@ export function Header() {
         <nav className="nav">
           {LINKS.map((l) => (
             <Link key={l.href} href={l.href} data-active={path === l.href}>
-              {l.label}
+              {t(l.key)}
             </Link>
           ))}
         </nav>
@@ -183,13 +182,13 @@ export function Header() {
             <SearchBox />
           </Suspense>
 
-          <Link href="/wishlist" className="icon-btn" aria-label="Favourites" data-active={path === "/wishlist"}>
+          <Link href="/wishlist" className="icon-btn" aria-label={t("act.favourites")} data-active={path === "/wishlist"}>
             <span aria-hidden style={{ fontSize: 15 }}>♥</span>
             {wishCount > 0 && <span className="badge">{wishCount}</span>}
           </Link>
 
-          <Link href="/cart" className="icon-btn" aria-label="Cart">
-            Cart
+          <Link href="/cart" className="icon-btn" aria-label={t("act.cart")}>
+            {t("act.cart")}
             {cart.itemCount > 0 && <span className="badge">{cart.itemCount}</span>}
           </Link>
 
@@ -198,17 +197,19 @@ export function Header() {
           ) : user ? (
             <>
               <Link href="/account" className="icon-btn" data-active={path === "/account"}>
-                Account
+                {t("act.account")}
               </Link>
               <button className="icon-btn" onClick={() => void signOut()}>
-                Sign out
+                {t("act.signout")}
               </button>
             </>
           ) : (
             <Link href="/login" className="btn sm">
-              Sign in
+              {t("act.signin")}
             </Link>
           )}
+
+          <LanguageSwitcher />
         </div>
       </div>
     </header>

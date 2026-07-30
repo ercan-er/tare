@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { WishlistButton } from "./wishlist-button";
+import { useLocale } from "./locale-provider";
 
 // Kendi "Storyly"miz: Instagram tarzi reklam hikayeleri. Tamamen sunumsal,
 // veri asagida sabit. Gorseller urun seed'iyle ayni Unsplash ID'leri.
@@ -13,11 +14,6 @@ const portrait = (id: string) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=900&h=1600&q=75`;
 const thumb = (id: string) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=200&h=200&q=70`;
-
-const fmt = (cents: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
-  }).format(cents / 100);
 
 // Slaytta etiketlenen urun. slug ile calistigi icin favorilere eklemek
 // numaralı bir id gerektirmez (seed'deki slug'larla eslesir).
@@ -233,6 +229,7 @@ const DURATION = 5000; // ms, her slayt
 const SEEN_KEY = "tare:stories-seen";
 
 export function Stories() {
+  const { money: fmt } = useLocale();
   const [open, setOpen] = useState<number | null>(null);
   const [slide, setSlide] = useState(0);
   const [paused, setPaused] = useState(false);

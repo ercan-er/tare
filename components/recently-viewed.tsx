@@ -6,11 +6,7 @@ import {
   RECENT_EVENT, readRecent, recordRecent, type RecentItem,
 } from "@/lib/recent";
 import { WishlistButton } from "./wishlist-button";
-
-const fmt = (cents: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
-  }).format(cents / 100);
+import { useLocale } from "./locale-provider";
 
 /** Urun detay sayfasinda mount olunca urunu gecmise yazar (gorsel ciktisi yok). */
 export function RecordRecentView({ item }: { item: RecentItem }) {
@@ -32,6 +28,7 @@ export function RecentlyViewed({
   title?: string;
   bare?: boolean;
 }) {
+  const { money: fmt } = useLocale();
   const [items, setItems] = useState<RecentItem[]>([]);
 
   useEffect(() => {

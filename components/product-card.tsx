@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { Product } from "@/lib/types";
-import { formatPrice } from "@/lib/db";
 import { Stars } from "./stars";
 import { WishlistButton } from "./wishlist-button";
+import { Price } from "./price";
 
 export function ProductCard({ p }: { p: Product }) {
   const out = p.stock <= 0;
@@ -32,7 +32,7 @@ export function ProductCard({ p }: { p: Product }) {
           <span style={{ color: "var(--faint)" }}>({p.reviewCount})</span>
         </div>
         <div className="p-foot">
-          <span className="p-price" data-testid="price">{formatPrice(p.price)}</span>
+          <span className="p-price" data-testid="price"><Price cents={p.price} /></span>
           <span style={{ fontSize: 12.5, color: out ? "var(--danger)" : "var(--ok)" }}>
             {out ? "Out of stock" : "In stock"}
           </span>

@@ -3,14 +3,11 @@
 import Link from "next/link";
 import { useWishlist } from "@/components/wishlist-provider";
 import { WishlistButton } from "@/components/wishlist-button";
-
-const fmt = (cents: number) =>
-  new Intl.NumberFormat("en-US", {
-    style: "currency", currency: "USD", maximumFractionDigits: 0,
-  }).format(cents / 100);
+import { useLocale } from "@/components/locale-provider";
 
 export default function WishlistPage() {
   const { items, ready } = useWishlist();
+  const { money: fmt } = useLocale();
 
   if (!ready) {
     return (
