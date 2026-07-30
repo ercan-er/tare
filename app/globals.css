@@ -281,7 +281,9 @@ select{
 
 /* ─────────── stories (instagram-style ads) ─────────── */
 .stories-bar{border-bottom:1px solid var(--line);background:var(--paper)}
-.stories-row{display:flex;gap:18px;padding:16px 0;overflow-x:auto;scrollbar-width:none}
+/* safe center: az story varken ortalar, tasinca basa yaslayip kaydirilir
+   (duz "center" tasinca bastaki story'leri kirpar, onlara ulasilamaz) */
+.stories-row{display:flex;gap:18px;padding:16px 0;overflow-x:auto;scrollbar-width:none;justify-content:safe center}
 .stories-row::-webkit-scrollbar{display:none}
 .story-bubble{flex:none;display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:none;padding:0;width:72px}
 .story-ring{display:block;width:66px;height:66px;border-radius:50%;padding:3px;background:var(--brass)}
