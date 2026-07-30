@@ -77,6 +77,21 @@ img{max-width:100%;display:block}
   color:var(--faint);font-weight:600;
 }
 
+/* ─────────── first-visit promo bar ─────────── */
+.promo{background:var(--ink);color:var(--paper);font-size:13.5px;border-bottom:1px solid var(--ink)}
+.promo-in{max-width:var(--wrap);margin:0 auto;padding:9px 28px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center}
+.promo-msg{letter-spacing:.01em}
+.promo-code{display:inline-block;padding:2px 8px;margin:0 2px;border-radius:3px;background:var(--brass);color:#fff;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;font-weight:700;letter-spacing:.04em}
+.promo-timer{color:rgba(255,255,255,.72);font-variant-numeric:tabular-nums}
+.promo-timer strong{color:#fff;font-weight:600}
+.promo-acts{display:flex;align-items:center;gap:10px;margin-left:4px}
+.promo-claim{padding:5px 12px;border:0;border-radius:var(--radius);background:var(--brass);color:#fff;font-size:12.5px;font-weight:600;cursor:pointer}
+.promo-claim:hover{filter:brightness(1.08)}
+.promo-link{color:rgba(255,255,255,.85);text-decoration:underline;font-size:12.5px}
+.promo-x{background:none;border:0;color:rgba(255,255,255,.55);font-size:18px;line-height:1;padding:0 4px;cursor:pointer}
+.promo-x:hover{color:#fff}
+@media (max-width:620px){.promo-in{padding:9px 18px}}
+
 /* ─────────── header ─────────── */
 .hdr{
   position:sticky;top:0;z-index:50;background:var(--header-bg);

@@ -6,7 +6,7 @@ import { useCart } from "@/components/cart-provider";
 import { useEffect, useState } from "react";
 import { trackViewCart } from "@/lib/metrics";
 import { shippingFor } from "@/lib/pricing";
-import { evaluateCoupon } from "@/lib/coupons";
+import { evaluateCoupon, isPromoToken, promoTokenExpiry, FIRST_VISIT_CODE } from "@/lib/coupons";
 import { useToast } from "@/components/toast-provider";
 import { useLocale } from "@/components/locale-provider";
 
@@ -28,25 +28,50 @@ export default function CartPage() {
     if (cart.itemCount > 0) void trackViewCart(cart.subtotal, cart.itemCount);
   }, [cart.itemCount, cart.subtotal]);
 
-  // Uygulanan kuponu diskten geri yukle.
   useEffect(() => {
     try {
       const saved = localStorage.getItem(COUPON_KEY);
-      if (saved) { setCouponCode(saved); setCouponInput(saved); }
-    } catch { /* yok say */ }
+      if (!saved) return;
+      if (isPromoToken(saved)) {
+        const exp = promoTokenExpiry(saved);
+        if (exp != null && Date.now() > exp) {
+          localStorage.removeItem(COUPON_KEY);
+          return;
+        }
+        setCouponCode(saved);
+        setCouponInput(FIRST_VISIT_CODE);
+        return;
+      }
+      setCouponCode(saved);
+      setCouponInput(saved);
+    } catch { /* ignore */ }
   }, []);
 
-  // Kodu her zaman guncel subtotal'a gore degerlendir (min tutar degisebilir).
   const couponEval = couponCode ? evaluateCoupon(couponCode, cart.subtotal) : null;
   const discount = couponEval?.ok ? couponEval.discount : 0;
+  const couponLabel = couponCode && isPromoToken(couponCode) ? FIRST_VISIT_CODE : couponCode;
+
+  useEffect(() => {
+    if (!couponCode || couponEval?.ok !== false) return;
+    if (!isPromoToken(couponCode)) return;
+    setCouponCode(null);
+    setCouponInput("");
+    setCouponError(couponEval.message);
+    try { localStorage.removeItem(COUPON_KEY); } catch { /* ignore */ }
+  }, [couponCode, couponEval?.ok, couponEval && !couponEval.ok ? couponEval.message : ""]);
 
   function applyCoupon() {
-    const res = evaluateCoupon(couponInput, cart.subtotal);
+    const typed = couponInput.trim();
+    const toEval =
+      typed.toUpperCase() === FIRST_VISIT_CODE && couponCode && isPromoToken(couponCode)
+        ? couponCode
+        : typed;
+    const res = evaluateCoupon(toEval, cart.subtotal);
     if (!res.ok) { setCouponError(res.message); return; }
     setCouponCode(res.code);
     setCouponError(null);
-    try { localStorage.setItem(COUPON_KEY, res.code); } catch { /* yok say */ }
-    toast(`Coupon ${res.code} applied — ${res.label}`, { type: "success" });
+    try { localStorage.setItem(COUPON_KEY, res.code); } catch { /* ignore */ }
+    toast(`Coupon ${isPromoToken(res.code) ? FIRST_VISIT_CODE : res.code} applied — ${res.label}`, { type: "success" });
   }
 
   function removeCoupon() {
@@ -190,7 +215,7 @@ export default function CartPage() {
 
             {discount > 0 && (
               <div className="row" style={{ color: "var(--ok)" }}>
-                <span>Discount ({couponCode})</span>
+                <span>Discount ({couponLabel})</span>
                 <span data-testid="discount">−{fmt(discount)}</span>
               </div>
             )}
@@ -200,8 +225,8 @@ export default function CartPage() {
                 <div className="coupon-applied" data-testid="coupon-applied">
                   <span>
                     {couponEval?.ok
-                      ? <>🏷️ <strong>{couponCode}</strong> · {couponEval.label}</>
-                      : <>🏷️ <strong>{couponCode}</strong> · <span style={{ color: "var(--danger)" }}>{(couponEval && !couponEval.ok) ? couponEval.message : "not applicable"}</span></>}
+                      ? <>🏷️ <strong>{couponLabel}</strong> · {couponEval.label}</>
+                      : <>🏷️ <strong>{couponLabel}</strong> · <span style={{ color: "var(--danger)" }}>{(couponEval && !couponEval.ok) ? couponEval.message : "not applicable"}</span></>}
                   </span>
                   <button className="btn ghost sm" onClick={removeCoupon}>Remove</button>
                 </div>

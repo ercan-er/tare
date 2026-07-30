@@ -7,6 +7,7 @@ import { ToastProvider } from "@/components/toast-provider";
 import { LocaleProvider } from "@/components/locale-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ServiceWorker } from "@/components/service-worker";
+import { PromoBar } from "@/components/promo-bar";
 import { Header } from "@/components/header";
 import { Footer } from "@/components/footer";
 import { FirebaseMetrics } from "@/components/firebase-metrics";
@@ -62,6 +63,7 @@ export default function RootLayout({
                   <ToastProvider>
                     <FirebaseMetrics />
                     <ServiceWorker />
+                    <PromoBar />
                     <Header />
                     <main>{children}</main>
                     <Footer />

@@ -43,7 +43,7 @@ export async function POST(req: Request) {
   const result = await createPendingOrder(user.uid, user.email, couponCode);
   if (!result.ok) {
     return jsonError(
-      result.code === "empty_cart" ? 400 : 409,
+      result.code === "empty_cart" || result.code === "invalid_coupon" ? 400 : 409,
       result.code,
       result.message
     );

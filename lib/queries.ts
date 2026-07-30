@@ -2,7 +2,8 @@ import "server-only";
 import { db } from "./db";
 import { isFault } from "./faults";
 import { shippingFor } from "./pricing";
-import { evaluateCoupon } from "./coupons";
+import { evaluateCoupon, isPromoToken } from "./coupons";
+import { verifyPromoToken } from "./promo-token";
 import type {
   Cart,
   CartLine,
@@ -333,7 +334,7 @@ function toOrder(r: Row, items: OrderItem[]): Order {
 
 export type CheckoutResult =
   | { ok: true; order: Order }
-  | { ok: false; code: "empty_cart" | "out_of_stock"; message: string };
+  | { ok: false; code: "empty_cart" | "out_of_stock" | "invalid_coupon"; message: string };
 
 /**
  * Sepetten "pending" bir siparis olusturur.
@@ -368,14 +369,19 @@ export async function createPendingOrder(
   const subtotal = cart.subtotal;
   const shipping = shippingFor(subtotal);
 
-  // Indirim de tutar gibi sunucuda hesaplaniyor; istemci yalnizca kodu yolladi.
   let discount = 0;
   let coupon: string | null = null;
   if (couponCode && couponCode.trim()) {
-    const res = evaluateCoupon(couponCode, subtotal);
-    if (res.ok && res.discount > 0) {
-      discount = res.discount;
-      coupon = res.code;
+    const promoSigValid = isPromoToken(couponCode)
+      ? verifyPromoToken(couponCode)
+      : undefined;
+    const couponRes = evaluateCoupon(couponCode, subtotal, { promoSigValid });
+    if (!couponRes.ok) {
+      return { ok: false, code: "invalid_coupon", message: couponRes.message };
+    }
+    if (couponRes.discount > 0) {
+      discount = couponRes.discount;
+      coupon = couponRes.code;
     }
   }
 
