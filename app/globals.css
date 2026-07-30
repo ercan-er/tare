@@ -387,6 +387,18 @@ select{
 .coupon-row input:focus{outline:none;border-color:var(--brass)}
 .coupon-applied{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--ink-2)}
 
+/* ─────────── search autocomplete ─────────── */
+.ac{position:absolute;top:calc(100% + 6px);left:0;right:0;min-width:280px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);z-index:60;overflow:hidden;padding:4px}
+.ac-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 8px;background:none;border:none;border-radius:var(--radius);text-align:left;cursor:pointer}
+.ac-item.active{background:var(--paper-2)}
+.ac-thumb{flex:none;width:34px;height:34px;border-radius:4px;overflow:hidden;background:var(--paper-2)}
+.ac-thumb img{width:100%;height:100%;object-fit:cover}
+.ac-name{flex:1;min-width:0;font-size:13.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ac-price{font-size:13px;color:var(--muted);font-family:var(--font-serif),serif}
+.ac-empty{padding:12px 10px;font-size:13.5px;color:var(--muted)}
+.ac-all{display:block;width:100%;padding:9px 10px;margin-top:2px;border:none;border-top:1px solid var(--line-soft);background:none;text-align:left;font-size:13px;font-weight:600;color:var(--brass);cursor:pointer;border-radius:0 0 var(--radius) var(--radius)}
+.ac-all.active{background:var(--brass-soft)}
+
 @media (max-width:1000px){
   .hero-grid,.detail,.cart-grid{grid-template-columns:1fr;gap:30px}
   .shop{grid-template-columns:1fr}
