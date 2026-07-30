@@ -501,6 +501,20 @@ export async function getOrderBySession(
   return row ? toOrder(row, await itemsOf(Number(row.id))) : null;
 }
 
+export async function getOrderById(
+  id: number,
+  uid: string
+): Promise<Order | null> {
+  // uid sarti onemli: baskasinin siparis id'sini tahmin eden biri
+  // siparisi goruntuleyememeli.
+  const res = await db().execute({
+    sql: "SELECT * FROM orders WHERE id = ? AND uid = ?",
+    args: [id, uid],
+  });
+  const row = res.rows[0];
+  return row ? toOrder(row, await itemsOf(Number(row.id))) : null;
+}
+
 export async function listOrders(uid: string, limit = 25): Promise<Order[]> {
   const res = await db().execute({
     sql: `SELECT * FROM orders WHERE uid = ?

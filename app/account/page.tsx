@@ -138,9 +138,12 @@ export default function AccountPage() {
                 style={{ marginBottom: 12, alignItems: "center" }}
               >
                 <div>
-                  <div style={{ fontFamily: "var(--font-serif)", fontSize: 20 }}>
+                  <Link
+                    href={`/account/orders/${order.id}`}
+                    style={{ fontFamily: "var(--font-serif)", fontSize: 20 }}
+                  >
                     Order #{order.id}
-                  </div>
+                  </Link>
                   <div style={{ fontSize: 13.5, color: "var(--muted)", marginTop: 3 }}>
                     {fmtDate(order.createdAt)}
                   </div>
@@ -173,6 +176,15 @@ export default function AccountPage() {
               {order.status !== "cancelled" && (
                 <ShipmentTracker startIso={order.paidAt ?? order.createdAt} />
               )}
+
+              <div style={{ marginTop: 14, textAlign: "right" }}>
+                <Link
+                  href={`/account/orders/${order.id}`}
+                  style={{ fontSize: 13.5, color: "var(--brass)", fontWeight: 600 }}
+                >
+                  View details →
+                </Link>
+              </div>
             </aside>
           ))}
         </div>
