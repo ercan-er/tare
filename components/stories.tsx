@@ -116,6 +116,75 @@ const STORIES: Story[] = [
       },
     ],
   },
+  {
+    id: "bestsellers",
+    label: "⭐ Bestsellers",
+    ring: "linear-gradient(45deg,#F7971E,#FFD200 55%,#FF8008)",
+    coverId: "photo-1517668808822-9ebb02f2a0e6",
+    slides: [
+      {
+        photo: portrait("photo-1517668808822-9ebb02f2a0e6"),
+        tint: "#14100a",
+        eyebrow: "Most loved",
+        heading: "The gear everyone's buying",
+        body: "Top-rated kettles, grinders and scales in one place.",
+        cta: "Shop bestsellers",
+        href: "/products?sort=rating",
+      },
+      {
+        photo: portrait("photo-1594213114663-d94db9b17125"),
+        tint: "#120f0a",
+        eyebrow: "4.6★ and up",
+        heading: "Rated by 3,000+ brewers",
+        body: "If it's here, it earned its spot.",
+        cta: "See the ranking",
+        href: "/products?sort=rating",
+      },
+    ],
+  },
+  {
+    id: "freeship",
+    label: "🚚 Free ship",
+    ring: "linear-gradient(45deg,#11998E,#38EF7D 60%,#00C2A8)",
+    coverId: "photo-1447933601403-0c6688de566e",
+    slides: [
+      {
+        photo: portrait("photo-1447933601403-0c6688de566e"),
+        tint: "#08130f",
+        eyebrow: "On us",
+        heading: "Free shipping over $75",
+        body: "Add one more thing — the plane's on us.",
+        cta: "Start a basket",
+        href: "/products",
+      },
+    ],
+  },
+  {
+    id: "gifts",
+    label: "🎁 Gift sets",
+    ring: "linear-gradient(45deg,#8E2DE2,#DA22FF 55%,#FF4FD8)",
+    coverId: "photo-1516224498413-84ecf3a1e7fd",
+    slides: [
+      {
+        photo: portrait("photo-1516224498413-84ecf3a1e7fd"),
+        tint: "#120a16",
+        eyebrow: "For the coffee person",
+        heading: "Ready-to-gift sets",
+        body: "Scale, dripper and filters, boxed together.",
+        cta: "Shop gift sets",
+        href: "/products?category=accessories",
+      },
+      {
+        photo: portrait("photo-1509042239860-f550ce710b93"),
+        tint: "#120a16",
+        eyebrow: "No guesswork",
+        heading: "Can't pick? Can't lose.",
+        body: "Our bestsellers make an easy present.",
+        cta: "Browse gifts",
+        href: "/products?sort=rating",
+      },
+    ],
+  },
 ];
 
 const DURATION = 5000; // ms, her slayt
