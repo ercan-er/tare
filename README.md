@@ -301,9 +301,7 @@ that is buffering, not a broken pipeline.
 
 ### Fault injection
 
-Set `FAULT_INJECT` **on the preview environment only** and redeploy. Leave it
-empty in production. Each value produces a real defect, which is how you prove
-a verifier catches it rather than assuming.
+Set `FAULT_INJECT` **on the preview environment only** and redeploy. Leave it empty in production. Each value produces a real defect, which is how you prove a verifier catches it rather than assuming. ---
 
 
 | Value      | What breaks                            | What should catch it    |
