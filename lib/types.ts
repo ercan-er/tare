@@ -1,3 +1,18 @@
+export type ProductVariant = {
+  id: number;
+  optionName: string;
+  optionValue: string;
+  priceDelta: number;
+  stock: number;
+};
+
+export type ProductInsight = {
+  purchaseRate: number;
+  topReason: string;
+  alsoBoughtPct: number | null;
+  alsoBoughtLabel: string | null;
+};
+
 export type Product = {
   id: number;
   slug: string;
@@ -12,6 +27,9 @@ export type Product = {
   reviewCount: number;
   stock: number;
   imageUrl: string | null;
+  images: string[];
+  variants: ProductVariant[];
+  insight: ProductInsight | null;
   tags: string[];
   createdAt: string;      // ISO 8601
 };
@@ -25,6 +43,7 @@ export type Category = {
 
 export type CartLine = {
   productId: number;
+  variantId: number;
   slug: string;
   name: string;
   price: number;

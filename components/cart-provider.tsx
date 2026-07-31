@@ -12,7 +12,7 @@ type Ctx = {
   cart: Cart;
   busy: boolean;
   error: string | null;
-  setLine: (productId: number, quantity: number) => Promise<boolean>;
+  setLine: (productId: number, quantity: number, variantId?: number) => Promise<boolean>;
   clear: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -50,13 +50,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const setLine = useCallback(
-    async (productId: number, quantity: number) => {
+    async (productId: number, quantity: number, variantId = 0) => {
       setBusy(true);
       setError(null);
       try {
         const res = await call({
           method: "POST",
-          body: JSON.stringify({ productId, quantity }),
+          body: JSON.stringify({ productId, quantity, variantId }),
         });
         if (!res) { setError("Sign in to add items to your cart."); return false; }
         const data = await res.json();

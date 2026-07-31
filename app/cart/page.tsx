@@ -164,7 +164,7 @@ export default function CartPage() {
             {error && <div className="alert err" style={{ marginBottom: 14 }}>{error}</div>}
 
             {cart.lines.map((l) => (
-              <div className="c-line" key={l.productId} data-testid="cart-line">
+              <div className="c-line" key={`${l.productId}-${l.variantId}`} data-testid="cart-line">
                 <div className="c-thumb">
                   {l.imageUrl ? <img src={l.imageUrl} alt={l.name} /> : null}
                 </div>
@@ -176,9 +176,9 @@ export default function CartPage() {
                     {fmt(l.price)} each · {l.stock} in stock
                   </div>
                   <div className="qty" style={{ marginTop: 10 }}>
-                    <button onClick={() => void setLine(l.productId, l.quantity - 1)} disabled={busy} aria-label="Decrease">−</button>
+                    <button onClick={() => void setLine(l.productId, l.quantity - 1, l.variantId)} disabled={busy} aria-label="Decrease">−</button>
                     <span>{l.quantity}</span>
-                    <button onClick={() => void setLine(l.productId, l.quantity + 1)} disabled={busy || l.quantity >= l.stock} aria-label="Increase">+</button>
+                    <button onClick={() => void setLine(l.productId, l.quantity + 1, l.variantId)} disabled={busy || l.quantity >= l.stock} aria-label="Increase">+</button>
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
@@ -188,7 +188,7 @@ export default function CartPage() {
                   <button
                     className="btn ghost sm"
                     style={{ marginTop: 10 }}
-                    onClick={() => void setLine(l.productId, 0)}
+                    onClick={() => void setLine(l.productId, 0, l.variantId)}
                     disabled={busy}
                   >
                     Remove
