@@ -10,6 +10,7 @@ import { RecordRecentView, RecentlyViewed } from "@/components/recently-viewed";
 import { ProductReviews } from "@/components/product-reviews";
 import { FrequentlyBoughtTogether } from "@/components/frequently-bought";
 import { ProductGallery, ProductInsights } from "@/components/product-media";
+import { ProductAiGuide } from "@/components/product-ai-guide";
 
 export const dynamic = "force-dynamic";
 
@@ -87,6 +88,27 @@ export default async function ProductPage({
           )}
 
           <p className="desc">{product.description}</p>
+
+          <ProductAiGuide
+            product={{
+              id: product.id,
+              name: product.name,
+              brand: product.brand,
+              categoryName: product.categoryName,
+              categorySlug: product.categorySlug,
+              description: product.description,
+              rating: product.rating,
+              reviewCount: product.reviewCount,
+              stock: product.stock,
+              price: product.price,
+              tags: product.tags,
+              variants: product.variants.map((v) => ({
+                optionName: v.optionName,
+                optionValue: v.optionValue,
+              })),
+              insight: product.insight,
+            }}
+          />
 
           <AddToCart
             productId={product.id}
