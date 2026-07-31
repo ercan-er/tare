@@ -552,7 +552,6 @@ async function main() {
   await client.execute("DELETE FROM products");
   await client.execute("DELETE FROM categories");
 
-  // Recreate cart_lines so older DBs pick up variant_id in the primary key.
   await client.execute("DROP TABLE IF EXISTS cart_lines");
   await client.execute(`
     CREATE TABLE cart_lines (
@@ -562,6 +561,19 @@ async function main() {
       quantity   INTEGER NOT NULL CHECK (quantity > 0),
       updated_at TEXT NOT NULL,
       PRIMARY KEY (uid, product_id, variant_id)
+    )
+  `);
+
+  await client.execute("DROP TABLE IF EXISTS order_items");
+  await client.execute(`
+    CREATE TABLE order_items (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      product_id INTEGER NOT NULL,
+      variant_id INTEGER NOT NULL DEFAULT 0,
+      name       TEXT NOT NULL,
+      price      INTEGER NOT NULL,
+      quantity   INTEGER NOT NULL CHECK (quantity > 0)
     )
   `);
 

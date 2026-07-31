@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type MouseEvent } from "react";
 
 type Props = {
   images: string[];
@@ -16,7 +16,7 @@ export function ProductGallery({ images, alt }: Props) {
 
   const src = list[active] ?? null;
 
-  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const onMove = (e: MouseEvent<HTMLDivElement>) => {
     const el = stageRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();

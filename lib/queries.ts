@@ -189,7 +189,7 @@ export async function listProducts(
   });
 
   return {
-    items: res.rows.map(toProduct),
+    items: res.rows.map((r) => toProduct(r)),
     page: q.page,
     perPage: q.perPage,
     total,
@@ -231,7 +231,7 @@ export async function relatedProducts(
            LIMIT ?`,
     args: [categorySlug, excludeId, limit],
   });
-  return res.rows.map(toProduct);
+  return res.rows.map((r) => toProduct(r));
 }
 
 export async function featuredProducts(limit = 4): Promise<Product[]> {
@@ -244,7 +244,7 @@ export async function featuredProducts(limit = 4): Promise<Product[]> {
            LIMIT ?`,
     args: [limit],
   });
-  return res.rows.map(toProduct);
+  return res.rows.map((r) => toProduct(r));
 }
 
 /* ─────────────────────────── cart ─────────────────────────── */
@@ -315,17 +315,16 @@ export async function setCartLine(
   }
 
   const variants = await variantsOf(productId);
-  if (variants.length > 0 && variantId <= 0) {
-    return {
-      ok: false,
-      code: "variant_required",
-      message: "Choose an option before adding this product.",
-    };
+  let resolvedVariant = variantId;
+
+  if (variants.length > 0 && resolvedVariant <= 0) {
+    const fallback = variants.find((v) => v.stock > 0) ?? variants[0];
+    resolvedVariant = fallback?.id ?? 0;
   }
 
   let stock = Number(row.stock);
-  if (variantId > 0) {
-    const v = variants.find((x) => x.id === variantId);
+  if (resolvedVariant > 0) {
+    const v = variants.find((x) => x.id === resolvedVariant);
     if (!v) {
       return { ok: false, code: "not_found", message: "That option was not found." };
     }
@@ -343,7 +342,7 @@ export async function setCartLine(
     };
   }
 
-  const vid = variantId > 0 ? variantId : 0;
+  const vid = resolvedVariant > 0 ? resolvedVariant : 0;
 
   if (quantity <= 0) {
     await db().execute({
