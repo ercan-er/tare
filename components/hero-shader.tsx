@@ -3,14 +3,9 @@
 import { useEffect, useRef } from "react";
 
 /*
- * Cursor-reactive WebGL "coffee/steam" hero background. A single full-screen
- * triangle runs a fragment shader: domain-warped fbm fluid, rising steam on
- * top, heat glow + ripple around the pointer, and coffee beans drifting behind
- * the fluid. Theme-aware (dark: espresso+crema, light: latte/cream). No deps.
- *
- * Performance: DPR <= 2, pauses while the tab is hidden or the hero is off
- * screen, draws a single frame under reduced-motion. When WebGL is missing it
- * simply draws nothing (the CSS fallback shows through).
+ * Procedural WebGL hero: a filled coffee cup with steam rising from the liquid.
+ * Everything is drawn in the fragment shader (no image assets → nothing to
+ * right-click-save). Theme-aware; pauses off-screen / reduced-motion.
  */
 
 const VERT = `
@@ -22,137 +17,157 @@ const FRAG = `
 precision highp float;
 uniform vec2  uRes;
 uniform float uTime;
-uniform vec2  uMouse;   // uv space [0,1], y up
-uniform float uDark;    // 1.0 dark theme, 0.0 light
+uniform vec2  uMouse;
+uniform float uDark;
 
 float hash(vec2 p){
   p = fract(p * vec2(123.34, 456.21));
   p += dot(p, p + 45.32);
   return fract(p.x * p.y);
 }
-
 float noise(vec2 p){
   vec2 i = floor(p);
   vec2 f = fract(p);
   vec2 u = f * f * (3.0 - 2.0 * f);
-  float a = hash(i + vec2(0.0, 0.0));
-  float b = hash(i + vec2(1.0, 0.0));
-  float c = hash(i + vec2(0.0, 1.0));
-  float d = hash(i + vec2(1.0, 1.0));
-  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+  return mix(mix(hash(i), hash(i+vec2(1.,0.)), u.x),
+             mix(hash(i+vec2(0.,1.)), hash(i+vec2(1.,1.)), u.x), u.y);
 }
-
 float fbm(vec2 p){
-  float v = 0.0;
-  float amp = 0.5;
-  for(int i = 0; i < 5; i++){
-    v += amp * noise(p);
-    p = p * 2.02 + vec2(3.1, 1.7);
-    amp *= 0.5;
-  }
+  float v = 0.0, a = 0.5;
+  for(int i=0;i<5;i++){ v += a*noise(p); p = p*2.03 + vec2(1.7,3.1); a *= 0.5; }
   return v;
 }
-
-vec2 hash2(vec2 p){
-  return fract(sin(vec2(dot(p, vec2(127.1, 311.7)),
-                        dot(p, vec2(269.5, 183.3)))) * 43758.5453);
+float sdEllipse(vec2 p, vec2 r){
+  return (length(p/r) - 1.0) * min(r.x, r.y);
 }
-
-// A single coffee bean: elongated ellipse with a center crease.
-float bean(vec2 gv, vec2 off, float r, float ang){
-  vec2 d = gv - off;
-  float s = sin(ang), c = cos(ang);
-  d = mat2(c, -s, s, c) * d;
-  d.x /= 1.7;                                   // elongate -> bean shape
-  float dist = length(d);
-  float body = smoothstep(r, r * 0.45, dist);
-  float crease = smoothstep(r * 0.16, 0.0, abs(d.y)) * step(dist, r) * 0.4;
-  return clamp(body - crease, 0.0, 1.0);
+float sdBox(vec2 p, vec2 b){
+  vec2 d = abs(p) - b;
+  return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
 }
-
-// Coffee beans drifting behind the fluid — 3 parallax layers for depth.
-float beans(vec2 uv, float aspect, float t){
-  float acc = 0.0;
-  for(int i = 0; i < 3; i++){
-    float fl = float(i);
-    float scale = 5.0 + fl * 4.0;
-    vec2 p = vec2(uv.x * aspect, uv.y) * scale;
-    p.y += t * (0.25 + 0.12 * fl);              // float upward
-    p.x += sin(t * 0.2 + fl * 2.0) * 0.3;       // gentle sway
-    vec2 id = floor(p);
-    vec2 gv = fract(p) - 0.5;
-    vec2 h = hash2(id + fl * 37.0);
-    float present = step(0.55, h.x);            // ~45% of cells hold a bean
-    vec2 off = (hash2(id + 7.3 * fl) - 0.5) * 0.5;
-    float r = mix(0.12, 0.22, h.y) * (1.0 - fl * 0.16);
-    float ang = (h.x + h.y) * 6.283 + t * 0.3;
-    acc += bean(gv, off, r, ang) * present * (0.9 - fl * 0.22);
-  }
-  return clamp(acc, 0.0, 1.0);
+float sdOrientedBox(vec2 p, vec2 a, vec2 b, float th){
+  float l = length(b - a);
+  vec2 d = (b - a) / l;
+  vec2 q = p - (a + b) * 0.5;
+  q = mat2(d.x, -d.y, d.y, d.x) * q;
+  q = abs(q) - vec2(l * 0.5, th);
+  return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
 }
 
 void main(){
-  float aspect = uRes.x / uRes.y;
+  float aspect = uRes.x / max(uRes.y, 1.0);
   vec2 uv = gl_FragCoord.xy / uRes.xy;
-  vec2 p = vec2(uv.x * aspect, uv.y) * 2.6;
+  // scene space: cup sits on the right half
+  vec2 sp = vec2((uv.x - 0.72) * aspect * 1.15, (uv.y - 0.38) * 1.15);
 
-  float t = uTime * 0.05;
+  float t = uTime;
 
-  // pointer effect (fluid ripple + heat)
-  vec2 m = vec2(uMouse.x * aspect, uMouse.y) * 2.6;
-  float md = distance(p, m);
-  float ripple = sin(md * 5.0 - uTime * 1.6) * exp(-md * 1.4) * 0.35;
+  // soft background atmosphere
+  vec3 bgDark = vec3(0.08, 0.05, 0.035);
+  vec3 bgLite = vec3(0.96, 0.94, 0.90);
+  vec3 bg = mix(bgLite, bgDark, uDark);
+  float wash = fbm(vec2(uv.x * aspect, uv.y) * 2.2 + t * 0.03);
+  bg = mix(bg, mix(vec3(0.90,0.82,0.70), vec3(0.18,0.10,0.06), uDark), wash * 0.18);
 
-  // domain warp
-  vec2 q = vec2(fbm(p + t), fbm(p + vec2(5.2, 1.3) - t));
-  vec2 r = vec2(
-    fbm(p + 1.8 * q + vec2(1.7, 9.2) + 0.15 * t + ripple),
-    fbm(p + 1.8 * q + vec2(8.3, 2.8) + 0.126 * t + ripple)
-  );
-  float f = fbm(p + 1.6 * r);
+  // cup geometry (body + rim + liquid + handle)
+  float cupW = 0.28;
+  float cupH = 0.34;
+  // tapered cup body
+  vec2 bp = sp - vec2(0.0, -0.02);
+  float taper = 1.0 + bp.y * 0.55;
+  vec2 bodyP = vec2(bp.x / taper, bp.y);
+  float body = sdBox(bodyP, vec2(cupW, cupH));
+  body = max(body, -sdBox(bodyP - vec2(0.0, cupH * 0.15), vec2(cupW * 0.82, cupH * 0.95)));
 
-  // palettes
-  vec3 dark1 = vec3(0.043, 0.031, 0.024);
-  vec3 dark2 = vec3(0.235, 0.113, 0.051);
-  vec3 dark3 = vec3(0.545, 0.318, 0.145);
-  vec3 dark4 = vec3(0.878, 0.627, 0.361);
+  // outer wall ring
+  float wall = abs(body) - 0.018;
+  float cupMask = 1.0 - smoothstep(0.0, 0.01, body);
 
-  vec3 lite1 = vec3(0.965, 0.937, 0.878);
-  vec3 lite2 = vec3(0.858, 0.749, 0.576);
-  vec3 lite3 = vec3(0.635, 0.435, 0.247);
-  vec3 lite4 = vec3(0.443, 0.278, 0.153);
+  // top ellipse (opening)
+  vec2 rimC = vec2(0.0, cupH - 0.02);
+  float rim = sdEllipse(sp - rimC, vec2(cupW * 1.05, 0.07));
+  float rimBand = 1.0 - smoothstep(0.0, 0.012, abs(rim));
 
-  vec3 c1 = mix(lite1, dark1, uDark);
-  vec3 c2 = mix(lite2, dark2, uDark);
-  vec3 c3 = mix(lite3, dark3, uDark);
-  vec3 c4 = mix(lite4, dark4, uDark);
+  // liquid surface (slightly below rim)
+  vec2 liqC = rimC - vec2(0.0, 0.035);
+  float liq = sdEllipse(sp - liqC, vec2(cupW * 0.92, 0.055));
+  float liqFill = 1.0 - smoothstep(0.0, 0.008, liq);
+  // only draw liquid inside cup opening
+  float inOpening = 1.0 - smoothstep(0.0, 0.01, rim);
 
-  vec3 col = mix(c1, c2, smoothstep(0.15, 0.9, f));
+  // handle (right side)
+  float handle = sdOrientedBox(sp, vec2(cupW * 0.95, 0.08), vec2(cupW * 1.45, 0.02), 0.035);
+  float handleHole = sdOrientedBox(sp, vec2(cupW * 1.05, 0.08), vec2(cupW * 1.32, 0.02), 0.012);
+  handle = max(handle, -handleHole);
+  float handleMask = 1.0 - smoothstep(0.0, 0.008, handle);
 
-  // coffee beans drifting behind (crema/steam pass in front of them)
-  float bmask = beans(uv, aspect, uTime * 0.10);
-  vec3 beanCol = mix(vec3(0.27, 0.15, 0.07), vec3(0.74, 0.49, 0.28), uDark);
-  col = mix(col, beanCol, bmask * 0.42);
+  // saucer
+  float saucer = sdEllipse(sp - vec2(0.0, -cupH - 0.02), vec2(cupW * 1.45, 0.05));
+  float saucerMask = 1.0 - smoothstep(0.0, 0.01, saucer);
 
-  col = mix(col, c3, smoothstep(0.35, 0.95, r.y));
-  // crema/highlight band
-  float band = smoothstep(0.55, 0.95, f) * smoothstep(0.95, 0.55, r.x);
-  col = mix(col, c4, band * 0.6);
+  // colors
+  vec3 ceramic = mix(vec3(0.94, 0.92, 0.88), vec3(0.22, 0.18, 0.14), uDark);
+  vec3 ceramicShade = mix(vec3(0.82, 0.78, 0.72), vec3(0.12, 0.09, 0.07), uDark);
+  vec3 coffee = mix(vec3(0.22, 0.12, 0.06), vec3(0.10, 0.05, 0.02), uDark);
+  vec3 crema = mix(vec3(0.72, 0.52, 0.30), vec3(0.45, 0.28, 0.14), uDark);
 
-  // rising steam (stronger toward the top)
-  float steam = fbm(vec2(p.x * 1.3, p.y * 0.9 - uTime * 0.22));
-  steam *= smoothstep(0.32, 1.0, uv.y);
-  vec3 steamCol = mix(vec3(1.0), vec3(0.92, 0.86, 0.8), uDark);
-  col += steamCol * steam * steam * (0.10 + 0.05 * uDark);
+  vec3 col = bg;
 
-  // pointer heat glow
-  float glow = exp(-md * 2.2);
-  col += vec3(0.95, 0.55, 0.25) * glow * (0.18 + 0.22 * uDark);
+  // saucer under
+  col = mix(col, ceramicShade, saucerMask * 0.85);
 
-  // subtle vignette + grain (avoids banding)
-  float vig = smoothstep(1.25, 0.2, length(uv - 0.5));
-  col *= mix(0.82, 1.0, vig);
-  col += (hash(gl_FragCoord.xy) - 0.5) * 0.015;
+  // cup body shading
+  float shade = smoothstep(-cupW, cupW, sp.x) * 0.35 + 0.15;
+  vec3 cupCol = mix(ceramic, ceramicShade, shade);
+  col = mix(col, cupCol, cupMask * step(body, 0.02));
+  col = mix(col, ceramic, rimBand * 0.9);
+  col = mix(col, ceramicShade, handleMask * 0.95);
+
+  // coffee + crema swirl on liquid
+  float swirl = fbm((sp - liqC) * 8.0 + vec2(t * 0.15, -t * 0.08));
+  vec3 liquidCol = mix(coffee, crema, smoothstep(0.35, 0.75, swirl) * 0.55);
+  // highlight ring near rim edge
+  float gloss = exp(-abs(rim) * 40.0) * 0.35;
+  liquidCol += vec3(1.0, 0.9, 0.75) * gloss * (0.2 + 0.3 * (1.0 - uDark));
+  float liquidMask = liqFill * inOpening;
+  col = mix(col, liquidCol, liquidMask);
+
+  // STEAM — originates from liquid surface, rises and fades
+  float steamAcc = 0.0;
+  for(int i = 0; i < 4; i++){
+    float fi = float(i);
+    // sample above the cup rim, drift upward over time
+    vec2 base = sp - liqC;
+    float rise = fract(t * (0.12 + fi * 0.03) + fi * 0.27);
+    vec2 st = vec2(
+      base.x * (1.4 - rise * 0.6) + sin(t * 0.7 + fi * 2.1 + base.y * 4.0) * 0.04 * rise,
+      base.y - 0.02 - rise * 0.55
+    );
+    float plume = fbm(st * vec2(3.5, 2.2) + vec2(fi * 5.0, -t * 0.4));
+    plume = smoothstep(0.35, 0.85, plume);
+    // horizontal falloff from cup center + vertical fade as it rises
+    float hx = exp(-pow(base.x / (cupW * 0.85), 2.0));
+    float vy = smoothstep(0.0, 0.04, -base.y + 0.02) * (1.0 - smoothstep(0.15, 0.62, -base.y));
+    // only above liquid
+    float above = step(liqC.y - 0.01, sp.y);
+    steamAcc += plume * hx * vy * above * (0.55 - fi * 0.08);
+  }
+  steamAcc = clamp(steamAcc, 0.0, 1.0);
+  vec3 steamCol = mix(vec3(1.0, 0.98, 0.95), vec3(0.85, 0.80, 0.74), uDark);
+  col = mix(col, steamCol, steamAcc * (0.55 + 0.2 * uDark));
+
+  // soft shadow under cup
+  float sh = sdEllipse(sp - vec2(0.02, -cupH - 0.06), vec2(cupW * 1.2, 0.04));
+  col *= 1.0 - (1.0 - smoothstep(0.0, 0.04, sh)) * 0.18;
+
+  // pointer warmth near cup
+  vec2 m = vec2((uMouse.x - 0.72) * aspect * 1.15, (uMouse.y - 0.38) * 1.15);
+  float md = length(sp - m);
+  col += vec3(0.95, 0.55, 0.25) * exp(-md * 3.0) * (0.12 + 0.15 * uDark);
+
+  // vignette + grain
+  float vig = smoothstep(1.3, 0.25, length(uv - vec2(0.55, 0.45)));
+  col *= mix(0.88, 1.0, vig);
+  col += (hash(gl_FragCoord.xy + t) - 0.5) * 0.02;
 
   gl_FragColor = vec4(col, 1.0);
 }
@@ -164,7 +179,7 @@ function compile(gl: WebGLRenderingContext, type: number, src: string) {
   gl.compileShader(sh);
   if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
     if (process.env.NODE_ENV !== "production") {
-      console.warn("[hero-shader] shader compile error:", gl.getShaderInfoLog(sh));
+      console.warn("[hero-shader] compile:", gl.getShaderInfoLog(sh));
     }
     gl.deleteShader(sh);
     return null;
@@ -179,10 +194,18 @@ export function HeroShader() {
     const canvas = ref.current;
     if (!canvas) return;
 
+    // Discourage casual asset theft — no image URL; block context menu / drag.
+    const block = (e: Event) => e.preventDefault();
+    canvas.addEventListener("contextmenu", block);
+    canvas.addEventListener("dragstart", block);
+
     const gl =
-      (canvas.getContext("webgl", { alpha: false, antialias: false, powerPreference: "low-power" }) as WebGLRenderingContext | null) ||
+      (canvas.getContext("webgl", {
+        alpha: false, antialias: false, powerPreference: "low-power",
+        preserveDrawingBuffer: false,
+      }) as WebGLRenderingContext | null) ||
       (canvas.getContext("experimental-webgl") as WebGLRenderingContext | null);
-    if (!gl) return; // CSS fallback takes over
+    if (!gl) return;
 
     const vs = compile(gl, gl.VERTEX_SHADER, VERT);
     const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
@@ -208,11 +231,9 @@ export function HeroShader() {
     const uDark = gl.getUniformLocation(prog, "uDark");
 
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    // state
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const mouse = { x: 0.5, y: 0.55 };       // target
-    const smooth = { x: 0.5, y: 0.55 };      // smoothed
+    const mouse = { x: 0.72, y: 0.45 };
+    const smooth = { x: 0.72, y: 0.45 };
     let dark = document.documentElement.dataset.theme === "dark" ? 1 : 0;
     let raf = 0;
     let visible = true;
@@ -241,7 +262,6 @@ export function HeroShader() {
       render(now);
       raf = requestAnimationFrame(loop);
     };
-
     const startLoop = () => {
       if (raf || reduce) return;
       raf = requestAnimationFrame(loop);
@@ -251,7 +271,6 @@ export function HeroShader() {
       raf = 0;
     };
 
-    // events
     const onPointer = (e: PointerEvent) => {
       const rect = canvas.getBoundingClientRect();
       mouse.x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
@@ -261,7 +280,10 @@ export function HeroShader() {
       if (document.hidden) stopLoop();
       else if (visible) startLoop();
     };
-    const ro = new ResizeObserver(() => { resize(); if (reduce) render(performance.now()); });
+    const ro = new ResizeObserver(() => {
+      resize();
+      if (reduce) render(performance.now());
+    });
     ro.observe(canvas.parentElement || canvas);
 
     const io = new IntersectionObserver(
@@ -294,10 +316,19 @@ export function HeroShader() {
       mo.disconnect();
       window.removeEventListener("pointermove", onPointer);
       document.removeEventListener("visibilitychange", onVisibility);
+      canvas.removeEventListener("contextmenu", block);
+      canvas.removeEventListener("dragstart", block);
       const ext = gl.getExtension("WEBGL_lose_context");
       if (ext) ext.loseContext();
     };
   }, []);
 
-  return <canvas ref={ref} className="hero-canvas" aria-hidden="true" />;
+  return (
+    <canvas
+      ref={ref}
+      className="hero-canvas"
+      aria-hidden="true"
+      draggable={false}
+    />
+  );
 }

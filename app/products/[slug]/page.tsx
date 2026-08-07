@@ -10,6 +10,7 @@ import { TrackProductView } from "@/components/track-view";
 import { RecordRecentView, RecentlyViewed } from "@/components/recently-viewed";
 import { ProductReviews } from "@/components/product-reviews";
 import { FrequentlyBoughtTogether } from "@/components/frequently-bought";
+import { LiveSignals } from "@/components/live-signals";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +93,12 @@ export default async function ProductPage({
               {product.reviewCount} reviews
             </span>
           </div>
+
+          <LiveSignals
+            productId={product.id}
+            stock={product.stock}
+            reviewCount={product.reviewCount}
+          />
 
           <div className="price" data-testid="product-price"><Price cents={product.price} /></div>
           <div style={{ fontSize: 14, color: out ? "var(--danger)" : "var(--ok)" }}>
