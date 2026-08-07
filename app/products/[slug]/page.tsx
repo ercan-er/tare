@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProduct, relatedProducts } from "@/lib/queries";
 import { AddToCart } from "@/components/add-to-cart";
-import { Price } from "@/components/price";
 import { ProductCard } from "@/components/product-card";
 import { Stars } from "@/components/stars";
 import { TrackProductView } from "@/components/track-view";
 import { RecordRecentView, RecentlyViewed } from "@/components/recently-viewed";
 import { ProductReviews } from "@/components/product-reviews";
 import { FrequentlyBoughtTogether } from "@/components/frequently-bought";
+import { ProductGallery, ProductInsights } from "@/components/product-media";
+import { ProductAiGuide } from "@/components/product-ai-guide";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,6 @@ export default async function ProductPage({
   if (!product) notFound();
 
   const related = await relatedProducts(product.categorySlug, product.id);
-  const out = product.stock <= 0;
 
   return (
     <div className="wrap">
@@ -64,22 +64,7 @@ export default async function ProductPage({
       </div>
 
       <div className="detail">
-        <div className="detail-art">
-          {product.imageUrl ? (
-            <img src={product.imageUrl} alt={product.name} />
-          ) : (
-            <div
-              style={{
-                width: "100%", height: "100%", display: "flex",
-                alignItems: "center", justifyContent: "center",
-                color: "var(--faint)", fontSize: 12, letterSpacing: ".14em",
-                textTransform: "uppercase",
-              }}
-            >
-              no image
-            </div>
-          )}
-        </div>
+        <ProductGallery images={product.images} alt={product.name} />
 
         <div>
           <span className="eyebrow">{product.brand}</span>
@@ -93,12 +78,37 @@ export default async function ProductPage({
             </span>
           </div>
 
-          <div className="price" data-testid="product-price"><Price cents={product.price} /></div>
-          <div style={{ fontSize: 14, color: out ? "var(--danger)" : "var(--ok)" }}>
-            {out ? "Sold out" : `${product.stock} in stock`}
-          </div>
+          {product.insight && (
+            <ProductInsights
+              purchaseRate={product.insight.purchaseRate}
+              topReason={product.insight.topReason}
+              alsoBoughtPct={product.insight.alsoBoughtPct}
+              alsoBoughtLabel={product.insight.alsoBoughtLabel}
+            />
+          )}
 
           <p className="desc">{product.description}</p>
+
+          <ProductAiGuide
+            product={{
+              id: product.id,
+              name: product.name,
+              brand: product.brand,
+              categoryName: product.categoryName,
+              categorySlug: product.categorySlug,
+              description: product.description,
+              rating: product.rating,
+              reviewCount: product.reviewCount,
+              stock: product.stock,
+              price: product.price,
+              tags: product.tags,
+              variants: product.variants.map((v) => ({
+                optionName: v.optionName,
+                optionValue: v.optionValue,
+              })),
+              insight: product.insight,
+            }}
+          />
 
           <AddToCart
             productId={product.id}
@@ -107,6 +117,7 @@ export default async function ProductPage({
             price={product.price}
             brand={product.brand}
             category={product.categoryName}
+            variants={product.variants}
           />
 
           <table className="spec">

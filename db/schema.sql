@@ -28,12 +28,42 @@ CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_slug);
 CREATE INDEX IF NOT EXISTS idx_products_price    ON products(price);
 CREATE INDEX IF NOT EXISTS idx_products_brand    ON products(brand);
 
-CREATE TABLE IF NOT EXISTS cart_lines (
-  uid        TEXT NOT NULL,                   -- firebase uid
+CREATE TABLE IF NOT EXISTS product_variants (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  product_id   INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  option_name  TEXT NOT NULL,
+  option_value TEXT NOT NULL,
+  price_delta  INTEGER NOT NULL DEFAULT 0,
+  stock        INTEGER NOT NULL DEFAULT 0,
+  sort_order   INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_variants_product ON product_variants(product_id);
+
+CREATE TABLE IF NOT EXISTS product_images (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  url        TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_images_product ON product_images(product_id);
+
+CREATE TABLE IF NOT EXISTS product_insights (
+  product_id       INTEGER PRIMARY KEY REFERENCES products(id) ON DELETE CASCADE,
+  purchase_rate    INTEGER NOT NULL CHECK (purchase_rate BETWEEN 0 AND 100),
+  top_reason       TEXT NOT NULL,
+  also_bought_pct  INTEGER,
+  also_bought_label TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cart_lines (
+  uid        TEXT NOT NULL,
+  product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  variant_id INTEGER NOT NULL DEFAULT 0,
   quantity   INTEGER NOT NULL CHECK (quantity > 0),
   updated_at TEXT NOT NULL,
-  PRIMARY KEY (uid, product_id)
+  PRIMARY KEY (uid, product_id, variant_id)
 );
 
 CREATE TABLE IF NOT EXISTS messages (
@@ -66,8 +96,9 @@ CREATE TABLE IF NOT EXISTS order_items (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   product_id INTEGER NOT NULL,
-  name       TEXT NOT NULL,                         -- siparis anindaki isim
-  price      INTEGER NOT NULL,                      -- siparis anindaki fiyat, cents
+  variant_id INTEGER NOT NULL DEFAULT 0,
+  name       TEXT NOT NULL,
+  price      INTEGER NOT NULL,
   quantity   INTEGER NOT NULL CHECK (quantity > 0)
 );
 

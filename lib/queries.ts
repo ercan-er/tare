@@ -13,20 +13,25 @@ import type {
   OrderStatus,
   Paginated,
   Product,
+  ProductInsight,
   ProductQuery,
+  ProductVariant,
   Review,
 } from "./types";
 
 type Row = Record<string, unknown>;
 
-function toProduct(r: Row): Product {
+function toProduct(r: Row, extras?: {
+  images?: string[];
+  variants?: ProductVariant[];
+  insight?: ProductInsight | null;
+}): Product {
   const stock = Number(r.stock);
   return {
     id: Number(r.id),
     slug: String(r.slug),
     name: String(r.name),
     description: String(r.description ?? ""),
-    // contract fault: return a string where a number is expected
     price: (isFault("contract") ? String(r.price) : Number(r.price)) as number,
     currency: "USD",
     categorySlug: String(r.category_slug),
@@ -34,14 +39,59 @@ function toProduct(r: Row): Product {
     brand: String(r.brand),
     rating: Number(r.rating),
     reviewCount: Number(r.review_count),
-    // stock fault: leak a negative stock value
     stock: isFault("stock") ? -Math.abs(stock) : stock,
     imageUrl: r.image_url ? String(r.image_url) : null,
+    images: extras?.images ?? (r.image_url ? [String(r.image_url)] : []),
+    variants: extras?.variants ?? [],
+    insight: extras?.insight ?? null,
     tags: String(r.tags ?? "")
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean),
     createdAt: String(r.created_at),
+  };
+}
+
+async function variantsOf(productId: number): Promise<ProductVariant[]> {
+  const res = await db().execute({
+    sql: `SELECT id, option_name, option_value, price_delta, stock
+            FROM product_variants
+           WHERE product_id = ?
+           ORDER BY sort_order, id`,
+    args: [productId],
+  });
+  return res.rows.map((r) => ({
+    id: Number(r.id),
+    optionName: String(r.option_name),
+    optionValue: String(r.option_value),
+    priceDelta: Number(r.price_delta),
+    stock: Number(r.stock),
+  }));
+}
+
+async function imagesOf(productId: number, fallback: string | null): Promise<string[]> {
+  const res = await db().execute({
+    sql: `SELECT url FROM product_images WHERE product_id = ? ORDER BY sort_order, id`,
+    args: [productId],
+  });
+  const urls = res.rows.map((r) => String(r.url));
+  if (urls.length) return urls;
+  return fallback ? [fallback] : [];
+}
+
+async function insightOf(productId: number): Promise<ProductInsight | null> {
+  const res = await db().execute({
+    sql: `SELECT purchase_rate, top_reason, also_bought_pct, also_bought_label
+            FROM product_insights WHERE product_id = ?`,
+    args: [productId],
+  });
+  const r = res.rows[0];
+  if (!r) return null;
+  return {
+    purchaseRate: Number(r.purchase_rate),
+    topReason: String(r.top_reason),
+    alsoBoughtPct: r.also_bought_pct == null ? null : Number(r.also_bought_pct),
+    alsoBoughtLabel: r.also_bought_label ? String(r.also_bought_label) : null,
   };
 }
 
@@ -139,7 +189,7 @@ export async function listProducts(
   });
 
   return {
-    items: res.rows.map(toProduct),
+    items: res.rows.map((r) => toProduct(r)),
     page: q.page,
     perPage: q.perPage,
     total,
@@ -156,7 +206,15 @@ export async function getProduct(slug: string): Promise<Product | null> {
     args: [slug],
   });
   const row = res.rows[0];
-  return row ? toProduct(row) : null;
+  if (!row) return null;
+  const id = Number(row.id);
+  const imageUrl = row.image_url ? String(row.image_url) : null;
+  const [images, variants, insight] = await Promise.all([
+    imagesOf(id, imageUrl),
+    variantsOf(id),
+    insightOf(id),
+  ]);
+  return toProduct(row, { images, variants, insight });
 }
 
 export async function relatedProducts(
@@ -173,7 +231,7 @@ export async function relatedProducts(
            LIMIT ?`,
     args: [categorySlug, excludeId, limit],
   });
-  return res.rows.map(toProduct);
+  return res.rows.map((r) => toProduct(r));
 }
 
 export async function featuredProducts(limit = 4): Promise<Product[]> {
@@ -186,33 +244,45 @@ export async function featuredProducts(limit = 4): Promise<Product[]> {
            LIMIT ?`,
     args: [limit],
   });
-  return res.rows.map(toProduct);
+  return res.rows.map((r) => toProduct(r));
 }
 
 /* ─────────────────────────── cart ─────────────────────────── */
 
 export async function getCart(uid: string): Promise<Cart> {
   const res = await db().execute({
-    sql: `SELECT cl.product_id, cl.quantity,
-                 p.slug, p.name, p.price, p.image_url, p.stock
+    sql: `SELECT cl.product_id, cl.variant_id, cl.quantity,
+                 p.slug, p.name, p.price, p.image_url, p.stock AS product_stock,
+                 v.option_value, v.price_delta, v.stock AS variant_stock
             FROM cart_lines cl
             JOIN products p ON p.id = cl.product_id
+            LEFT JOIN product_variants v ON v.id = cl.variant_id AND v.product_id = cl.product_id
            WHERE cl.uid = ?
            ORDER BY cl.updated_at DESC`,
     args: [uid],
   });
 
   const lines: CartLine[] = res.rows.map((r) => {
-    const price = Number(r.price);
+    const variantId = Number(r.variant_id ?? 0);
+    const base = Number(r.price);
+    const delta = variantId > 0 ? Number(r.price_delta ?? 0) : 0;
+    const price = base + delta;
     const quantity = Number(r.quantity);
+    const name = variantId > 0 && r.option_value
+      ? `${String(r.name)} — ${String(r.option_value)}`
+      : String(r.name);
+    const stock = variantId > 0
+      ? Number(r.variant_stock ?? 0)
+      : Number(r.product_stock);
     return {
       productId: Number(r.product_id),
+      variantId,
       slug: String(r.slug),
-      name: String(r.name),
+      name,
       price,
       quantity,
       imageUrl: r.image_url ? String(r.image_url) : null,
-      stock: Number(r.stock),
+      stock,
       lineTotal: price * quantity,
     };
   });
@@ -227,12 +297,13 @@ export async function getCart(uid: string): Promise<Cart> {
 
 export type CartResult =
   | { ok: true; cart: Cart }
-  | { ok: false; code: "not_found" | "out_of_stock"; message: string };
+  | { ok: false; code: "not_found" | "out_of_stock" | "variant_required"; message: string };
 
 export async function setCartLine(
   uid: string,
   productId: number,
-  quantity: number
+  quantity: number,
+  variantId = 0,
 ): Promise<CartResult> {
   const prod = await db().execute({
     sql: "SELECT id, stock, name FROM products WHERE id = ?",
@@ -243,31 +314,49 @@ export async function setCartLine(
     return { ok: false, code: "not_found", message: "Product not found." };
   }
 
-  const stock = Number(row.stock);
+  const variants = await variantsOf(productId);
+  let resolvedVariant = variantId;
+
+  if (variants.length > 0 && resolvedVariant <= 0) {
+    const fallback = variants.find((v) => v.stock > 0) ?? variants[0];
+    resolvedVariant = fallback?.id ?? 0;
+  }
+
+  let stock = Number(row.stock);
+  if (resolvedVariant > 0) {
+    const v = variants.find((x) => x.id === resolvedVariant);
+    if (!v) {
+      return { ok: false, code: "not_found", message: "That option was not found." };
+    }
+    stock = v.stock;
+  }
+
   if (quantity > 0 && quantity > stock) {
     return {
       ok: false,
       code: "out_of_stock",
       message:
         stock === 0
-          ? "This product is out of stock."
+          ? "This option is out of stock."
           : `Only ${stock} left in stock.`,
     };
   }
 
+  const vid = resolvedVariant > 0 ? resolvedVariant : 0;
+
   if (quantity <= 0) {
     await db().execute({
-      sql: "DELETE FROM cart_lines WHERE uid = ? AND product_id = ?",
-      args: [uid, productId],
+      sql: "DELETE FROM cart_lines WHERE uid = ? AND product_id = ? AND variant_id = ?",
+      args: [uid, productId, vid],
     });
   } else {
     await db().execute({
-      sql: `INSERT INTO cart_lines (uid, product_id, quantity, updated_at)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(uid, product_id)
+      sql: `INSERT INTO cart_lines (uid, product_id, variant_id, quantity, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(uid, product_id, variant_id)
             DO UPDATE SET quantity = excluded.quantity,
                           updated_at = excluded.updated_at`,
-      args: [uid, productId, quantity, new Date().toISOString()],
+      args: [uid, productId, vid, quantity, new Date().toISOString()],
     });
   }
 
@@ -397,9 +486,9 @@ export async function createPendingOrder(
 
   await db().batch(
     cart.lines.map((l) => ({
-      sql: `INSERT INTO order_items (order_id, product_id, name, price, quantity)
-            VALUES (?, ?, ?, ?, ?)`,
-      args: [orderId, l.productId, l.name, l.price, l.quantity],
+      sql: `INSERT INTO order_items (order_id, product_id, variant_id, name, price, quantity)
+            VALUES (?, ?, ?, ?, ?, ?)`,
+      args: [orderId, l.productId, l.variantId, l.name, l.price, l.quantity],
     })),
     "write"
   );
@@ -467,16 +556,29 @@ export async function markOrderPaid(
   }
 
   const items = await db().execute({
-    sql: "SELECT product_id, quantity FROM order_items WHERE order_id = ?",
+    sql: "SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?",
     args: [orderId],
   });
 
   const statements = [
-    ...items.rows.map((i) => ({
-      // MAX(0, …) yarisan iki siparisin stogu eksiye dusurmesini engelliyor.
-      sql: "UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?",
-      args: [Number(i.quantity), Number(i.product_id)],
-    })),
+    ...items.rows.flatMap((i) => {
+      const qty = Number(i.quantity);
+      const pid = Number(i.product_id);
+      const vid = Number(i.variant_id ?? 0);
+      const ops = [
+        {
+          sql: "UPDATE products SET stock = MAX(0, stock - ?) WHERE id = ?",
+          args: [qty, pid],
+        },
+      ];
+      if (vid > 0) {
+        ops.push({
+          sql: "UPDATE product_variants SET stock = MAX(0, stock - ?) WHERE id = ? AND product_id = ?",
+          args: [qty, vid, pid],
+        });
+      }
+      return ops;
+    }),
     { sql: "DELETE FROM cart_lines WHERE uid = ?", args: [String(row!.uid)] },
   ];
 
