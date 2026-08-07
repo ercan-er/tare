@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { ContactShadows } from "@react-three/drei";
 import * as THREE from "three";
 
 function useDarkTheme() {
@@ -33,11 +32,11 @@ function Cup({ dark }: { dark: boolean }) {
   useFrame((state) => {
     if (!group.current) return;
     const t = state.clock.elapsedTime;
-    const targetY = -0.18 + mouse.current.x * 0.28;
-    const targetX = 0.1 + mouse.current.y * 0.1;
+    const targetY = -0.22 + mouse.current.x * 0.2;
+    const targetX = 0.06 + mouse.current.y * 0.06;
     group.current.rotation.y += (targetY - group.current.rotation.y) * 0.045;
     group.current.rotation.x += (targetX - group.current.rotation.x) * 0.045;
-    group.current.position.y = Math.sin(t * 0.7) * 0.018;
+    group.current.position.y = 0.02 + Math.sin(t * 0.7) * 0.01;
   });
 
   const ceramic = dark ? "#d2c9bb" : "#f6f2ea";
@@ -60,26 +59,9 @@ function Cup({ dark }: { dark: boolean }) {
     [],
   );
 
-  const saucerProfile = useMemo(
-    () => [
-      new THREE.Vector2(0.0, 0.0),
-      new THREE.Vector2(0.95, 0.0),
-      new THREE.Vector2(1.05, 0.03),
-      new THREE.Vector2(1.02, 0.06),
-      new THREE.Vector2(0.55, 0.05),
-      new THREE.Vector2(0.0, 0.04),
-    ],
-    [],
-  );
-
   return (
-    <group ref={group} position={[0.15, -0.35, 0]} scale={1.15}>
-      <mesh castShadow receiveShadow>
-        <latheGeometry args={[saucerProfile, 64]} />
-        <meshStandardMaterial color={ceramic} roughness={0.32} metalness={0.06} />
-      </mesh>
-
-      <mesh castShadow receiveShadow>
+    <group ref={group} position={[0.35, 0.02, 0]} scale={0.62}>
+      <mesh>
         <latheGeometry args={[cupProfile, 80]} />
         <meshStandardMaterial color={ceramic} roughness={0.26} metalness={0.1} />
       </mesh>
@@ -89,7 +71,7 @@ function Cup({ dark }: { dark: boolean }) {
         <meshStandardMaterial color={ceramicDark} roughness={0.55} metalness={0} />
       </mesh>
 
-      <mesh position={[0, 1.05, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow>
+      <mesh position={[0, 1.05, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.58, 64]} />
         <meshStandardMaterial color={coffee} roughness={0.42} metalness={0.18} />
       </mesh>
@@ -99,10 +81,12 @@ function Cup({ dark }: { dark: boolean }) {
         <meshStandardMaterial color={crema} roughness={0.55} metalness={0.05} transparent opacity={0.7} />
       </mesh>
 
-      <mesh position={[0.72, 0.55, 0]} rotation={[0, 0, -0.12]} castShadow>
+      <mesh position={[0.72, 0.55, 0]} rotation={[0, 0, -0.12]}>
         <torusGeometry args={[0.28, 0.048, 24, 56, Math.PI * 1.2]} />
         <meshStandardMaterial color={ceramic} roughness={0.28} metalness={0.1} />
       </mesh>
+
+      <Steam />
     </group>
   );
 }
@@ -167,7 +151,7 @@ function Steam({ count = 480 }: { count?: number }) {
   });
 
   return (
-    <points ref={pointsRef} position={[0.15, -0.35, 0]} scale={1.15} frustumCulled={false}>
+    <points ref={pointsRef} frustumCulled={false}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
@@ -213,25 +197,12 @@ function Scene({ dark }: { dark: boolean }) {
   return (
     <>
       <color attach="background" args={[bg]} />
-      <fog attach="fog" args={[bg, 5, 12]} />
-      <ambientLight intensity={dark ? 0.32 : 0.5} />
-      <directionalLight
-        castShadow
-        position={[3.2, 5.5, 2.8]}
-        intensity={dark ? 1.15 : 1.4}
-        shadow-mapSize={[1024, 1024]}
-      />
-      <directionalLight position={[-2.8, 1.8, -2]} intensity={0.4} color="#e8c9a0" />
-      <pointLight position={[0.5, 1.7, 1.3]} intensity={0.55} color="#ffd9ad" distance={6} />
+      <fog attach="fog" args={[bg, 4, 10]} />
+      <ambientLight intensity={dark ? 0.38 : 0.58} />
+      <directionalLight position={[2.8, 4.5, 2.2]} intensity={dark ? 1.05 : 1.25} />
+      <directionalLight position={[-2.2, 1.6, -1.5]} intensity={0.35} color="#e8c9a0" />
+      <pointLight position={[0.4, 1.4, 1.1]} intensity={0.4} color="#ffd9ad" distance={5} />
       <Cup dark={dark} />
-      <Steam />
-      <ContactShadows
-        position={[0.15, -0.39, 0]}
-        opacity={dark ? 0.5 : 0.38}
-        scale={7}
-        blur={2.8}
-        far={4}
-      />
     </>
   );
 }
@@ -246,9 +217,8 @@ export function HeroShader() {
   return (
     <div className="hero-canvas" onContextMenu={(e) => e.preventDefault()} aria-hidden>
       <Canvas
-        shadows
         dpr={[1, 1.75]}
-        camera={{ position: [1.55, 1.4, 3.35], fov: 34, near: 0.1, far: 40 }}
+        camera={{ position: [1.35, 1.05, 3.1], fov: 32, near: 0.1, far: 40 }}
         gl={{
           antialias: true,
           alpha: false,

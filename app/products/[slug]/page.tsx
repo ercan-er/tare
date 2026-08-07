@@ -11,6 +11,7 @@ import { RecordRecentView, RecentlyViewed } from "@/components/recently-viewed";
 import { ProductReviews } from "@/components/product-reviews";
 import { FrequentlyBoughtTogether } from "@/components/frequently-bought";
 import { LiveSignals } from "@/components/live-signals";
+import { StockAlert } from "@/components/stock-alert";
 
 export const dynamic = "force-dynamic";
 
@@ -115,6 +116,12 @@ export default async function ProductPage({
             brand={product.brand}
             category={product.categoryName}
           />
+
+          {!out && (
+            <div style={{ marginTop: 14, maxWidth: 420 }}>
+              <StockAlert productId={product.id} productName={product.name} mode="price" />
+            </div>
+          )}
 
           <table className="spec">
             <tbody>

@@ -6,6 +6,7 @@ import { useAuth } from "./auth-provider";
 import { useCart } from "./cart-provider";
 import { useToast } from "./toast-provider";
 import { trackAddToCart } from "@/lib/metrics";
+import { StockAlert } from "./stock-alert";
 
 type Props = {
   productId: number;
@@ -26,7 +27,12 @@ export function AddToCart({ productId, stock, name, price, brand, category }: Pr
   const out = stock <= 0;
 
   if (out) {
-    return <div className="alert err" style={{ maxWidth: 420 }}>This product is currently sold out.</div>;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
+        <div className="alert err">This product is currently sold out.</div>
+        <StockAlert productId={productId} productName={name} mode="stock" />
+      </div>
+    );
   }
 
   if (!user) {
