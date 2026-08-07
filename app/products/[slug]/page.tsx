@@ -12,6 +12,8 @@ import { ProductReviews } from "@/components/product-reviews";
 import { FrequentlyBoughtTogether } from "@/components/frequently-bought";
 import { LiveSignals } from "@/components/live-signals";
 import { StockAlert } from "@/components/stock-alert";
+import { ProductQA } from "@/components/product-qa";
+import { ShareProduct } from "@/components/share-product";
 
 export const dynamic = "force-dynamic";
 
@@ -84,7 +86,10 @@ export default async function ProductPage({
         </div>
 
         <div>
-          <span className="eyebrow">{product.brand}</span>
+          <div className="detail-title-row">
+            <span className="eyebrow">{product.brand}</span>
+            <ShareProduct name={product.name} />
+          </div>
           <h1 data-testid="product-name">{product.name}</h1>
 
           <div className="p-meta">
@@ -155,6 +160,12 @@ export default async function ProductPage({
           ]}
         />
       )}
+
+      <ProductQA
+        productId={product.id}
+        name={product.name}
+        category={product.categoryName}
+      />
 
       <ProductReviews productId={product.id} />
 

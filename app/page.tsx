@@ -4,6 +4,7 @@ import { ProductCard } from "@/components/product-card";
 import { Stories } from "@/components/stories";
 import { RecentlyViewed } from "@/components/recently-viewed";
 import { HeroShader } from "@/components/hero-shader";
+import { FlashDeal } from "@/components/flash-deal";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +42,8 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <FlashDeal />
 
       <section className="sec" id="categories">
         <div className="wrap">

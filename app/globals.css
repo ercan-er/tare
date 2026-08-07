@@ -499,6 +499,66 @@ select{
 .toast-x:hover{color:#fff}
 @keyframes toast-in{from{transform:translateY(14px);opacity:0}to{transform:translateY(0);opacity:1}}
 
+/* ─────────── flash deal ─────────── */
+.flash{
+  border-bottom:1px solid var(--line);
+  background:linear-gradient(90deg,color-mix(in oklab,var(--brass) 14%,var(--paper)),var(--paper) 55%,color-mix(in oklab,var(--brass) 8%,var(--paper)))
+}
+.flash-in{
+  max-width:var(--max);margin:0 auto;padding:12px 28px;
+  display:flex;align-items:center;gap:14px 20px;flex-wrap:wrap;font-size:14px
+}
+.flash-tag{
+  font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--paper);background:var(--ink);padding:4px 8px;border-radius:2px
+}
+.flash-msg{color:var(--ink);font-weight:600}
+.flash-timer{color:var(--muted);font-variant-numeric:tabular-nums}
+.flash-timer strong{color:var(--ink);font-weight:700}
+.flash-link{margin-left:auto;font-weight:600;color:var(--brass);text-decoration:none}
+.flash-link:hover{text-decoration:underline}
+@media (max-width:620px){
+  .flash-in{padding:12px 18px}
+  .flash-link{margin-left:0}
+}
+
+/* ─────────── share + Q&A ─────────── */
+.detail-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px}
+.detail-title-row .eyebrow{margin:0}
+.share-btn{
+  flex:none;padding:6px 12px;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--paper);color:var(--ink-2);font:inherit;font-size:12.5px;font-weight:600;
+  letter-spacing:.04em;text-transform:uppercase;cursor:pointer
+}
+.share-btn:hover{border-color:var(--brass);color:var(--ink)}
+.share-btn:disabled{opacity:.55;cursor:wait}
+.qa-list{list-style:none;margin:0 0 22px;padding:0;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;background:var(--card)}
+.qa-item{border-top:1px solid var(--line-soft)}
+.qa-item:first-child{border-top:none}
+.qa-q{
+  width:100%;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+  padding:14px 16px;background:none;border:none;text-align:left;font:inherit;font-size:15px;
+  font-weight:600;color:var(--ink);cursor:pointer
+}
+.qa-q:hover{background:var(--paper-2)}
+.qa-chev{flex:none;color:var(--faint);font-weight:500;font-size:18px;line-height:1}
+.qa-a{padding:0 16px 14px;color:var(--ink-2);font-size:14.5px;line-height:1.55}
+.qa-a p{margin:0 0 10px}
+.qa-help{
+  background:none;border:1px solid var(--line);border-radius:var(--radius);
+  padding:5px 10px;font:inherit;font-size:12.5px;color:var(--muted);cursor:pointer
+}
+.qa-help:hover{border-color:var(--brass);color:var(--ink)}
+.qa-ask{max-width:560px}
+.qa-ask-label{display:block;font-size:13px;font-weight:600;color:var(--ink);margin:0 0 8px}
+.qa-ask-row{display:flex;gap:8px;flex-wrap:wrap}
+.qa-ask-row input{
+  flex:1;min-width:200px;padding:10px 12px;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--paper);color:var(--ink);font:inherit
+}
+.qa-ask-row input:focus{outline:none;border-color:var(--brass)}
+.qa-note{margin:8px 0 0;font-size:12.5px;color:var(--muted)}
+
 /* ─────────── reviews ─────────── */
 .review-form{max-width:560px;display:flex;flex-direction:column;gap:12px;margin-bottom:30px;padding:18px;border:1px solid var(--line);border-radius:var(--radius);background:var(--card)}
 .review-form-row{display:flex;align-items:center;gap:14px}
