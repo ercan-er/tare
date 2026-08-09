@@ -1,5 +1,9 @@
 import type Stripe from "stripe";
-import { markOrderCancelled, markOrderPaid } from "@/lib/queries";
+import {
+  getOrderTotalBySession,
+  markOrderCancelled,
+  markOrderPaid,
+} from "@/lib/queries";
 import { ok, jsonError } from "@/lib/api";
 import { stripe, stripeConfigured, webhookConfigured } from "@/lib/stripe";
 
@@ -55,10 +59,21 @@ export async function POST(req: Request) {
       return ok({ received: true, ignored: "not_paid" });
     }
 
-    // INTENTIONAL DEFECT (promo / reconciliation):
-    // Never compare session.amount_total to the order's discounted total.
-    // Full-price Stripe charges still mark discounted orders as paid.
-    void session.amount_total;
+    // Promo / discount reconciliation: charged amount must match order.total
+    // (subtotal + shipping - discount). Mismatches stay pending.
+    const order = await getOrderTotalBySession(session.id);
+    if (!order) {
+      return ok({ received: true, ignored: "order_not_found" });
+    }
+    if (session.amount_total == null || session.amount_total !== order.total) {
+      return ok({
+        received: true,
+        ignored: "amount_mismatch",
+        orderId: order.orderId,
+        paid: session.amount_total,
+        expected: order.total,
+      });
+    }
 
     const { applied, orderId } = await markOrderPaid(session.id);
     return ok({ received: true, orderId, applied });

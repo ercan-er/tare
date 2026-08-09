@@ -4,13 +4,9 @@ import { useEffect, useState } from "react";
 import { Price } from "./price";
 
 const COUPON_KEY = "tare:coupon";
+const PROMO_PERCENT = 15;
 
-/**
- * INTENTIONAL DEFECT (promo discount on products):
- * When a promo token is saved, the grid shows "15% off" by rendering
- * Math.round(price * 0.15) as the sale price — i.e. 15% of the price,
- * not price minus 15%. Cart preview uses the correct math; this does not.
- */
+/** Product grid preview when a first-visit promo token is saved locally. */
 export function ProductPromoPrice({ cents }: { cents: number }) {
   const [promoOn, setPromoOn] = useState(false);
 
@@ -24,13 +20,14 @@ export function ProductPromoPrice({ cents }: { cents: number }) {
 
   if (!promoOn) return <Price cents={cents} />;
 
-  const wrongSale = Math.round(cents * 0.15);
+  const discount = Math.round((cents * PROMO_PERCENT) / 100);
+  const sale = Math.max(0, cents - discount);
   return (
     <span data-testid="product-promo-price">
       <span style={{ textDecoration: "line-through", color: "var(--faint)", marginRight: 6 }}>
         <Price cents={cents} />
       </span>
-      <Price cents={wrongSale} />
+      <Price cents={sale} />
     </span>
   );
 }
