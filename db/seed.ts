@@ -421,10 +421,161 @@ const products: Seed[] = [
   },
 ];
 
+type VariantSeed = {
+  slug: string;
+  optionName: string;
+  options: { value: string; priceDelta: number; stock: number }[];
+};
+
+const variants: VariantSeed[] = [
+  {
+    slug: "tare-k2-hand-grinder",
+    optionName: "Grind range",
+    options: [
+      { value: "Filter", priceDelta: 0, stock: 10 },
+      { value: "Espresso", priceDelta: 0, stock: 6 },
+      { value: "Omni (both)", priceDelta: 1500, stock: 2 },
+    ],
+  },
+  {
+    slug: "tare-e1-electric-grinder",
+    optionName: "Finish",
+    options: [
+      { value: "Matte black", priceDelta: 0, stock: 3 },
+      { value: "Brushed steel", priceDelta: 2000, stock: 2 },
+      { value: "Cream", priceDelta: 2500, stock: 1 },
+    ],
+  },
+  {
+    slug: "conical-dripper-02",
+    optionName: "Size",
+    options: [
+      { value: "01 (1–2 cups)", priceDelta: 0, stock: 20 },
+      { value: "02 (1–4 cups)", priceDelta: 400, stock: 14 },
+    ],
+  },
+  {
+    slug: "classic-gooseneck-kettle",
+    optionName: "Capacity",
+    options: [
+      { value: "600 ml", priceDelta: 0, stock: 12 },
+      { value: "1 L", priceDelta: 800, stock: 8 },
+    ],
+  },
+  {
+    slug: "coffee-scale-pro",
+    optionName: "Bundle",
+    options: [
+      { value: "Scale only", priceDelta: 0, stock: 15 },
+      { value: "Scale + heat mat", priceDelta: 1200, stock: 7 },
+    ],
+  },
+];
+
+const extraImages: Record<string, string[]> = {
+  "tare-k2-hand-grinder": [
+    img("photo-1495474472287-4d71bcdd2085"),
+    img("photo-1514432324607-a09d9b4aefdd"),
+    img("photo-1509042239860-f550ce710b93"),
+  ],
+  "tare-e1-electric-grinder": [
+    img("photo-1511920170033-f8396924c348"),
+    img("photo-1442512595331-e545ff7f1c28"),
+  ],
+  "conical-dripper-02": [
+    img("photo-1495474472287-4d71bcdd2085"),
+    img("photo-1461023058943-07fcbe16d735"),
+  ],
+  "classic-gooseneck-kettle": [
+    img("photo-1514432324607-a09d9b4aefdd"),
+    img("photo-1509042239860-f550ce710b93"),
+  ],
+  "coffee-scale-pro": [
+    img("photo-1511920170033-f8396924c348"),
+  ],
+};
+
+type InsightSeed = {
+  slug: string;
+  purchaseRate: number;
+  topReason: string;
+  alsoBoughtPct: number;
+  alsoBoughtLabel: string;
+};
+
+const insights: InsightSeed[] = [
+  {
+    slug: "tare-k2-hand-grinder",
+    purchaseRate: 72,
+    topReason: "Most buyers want travel-ready espresso and filter in one grinder.",
+    alsoBoughtPct: 41,
+    alsoBoughtLabel: "a precision scale",
+  },
+  {
+    slug: "tare-e1-electric-grinder",
+    purchaseRate: 58,
+    topReason: "Chosen for quiet mornings and stepless dial-in.",
+    alsoBoughtPct: 36,
+    alsoBoughtLabel: "an espresso basket set",
+  },
+  {
+    slug: "conical-dripper-02",
+    purchaseRate: 64,
+    topReason: "People pick it as the everyday pour-over workhorse.",
+    alsoBoughtPct: 48,
+    alsoBoughtLabel: "paper filters",
+  },
+  {
+    slug: "classic-gooseneck-kettle",
+    purchaseRate: 61,
+    topReason: "Buyers want slow, controlled pours without electronics.",
+    alsoBoughtPct: 33,
+    alsoBoughtLabel: "a ceramic dripper",
+  },
+  {
+    slug: "coffee-scale-pro",
+    purchaseRate: 69,
+    topReason: "Most common upgrade after people start weighing brew ratios.",
+    alsoBoughtPct: 29,
+    alsoBoughtLabel: "a hand grinder",
+  },
+];
+
 async function main() {
   await client.execute("DELETE FROM cart_lines");
+  await client.execute("DELETE FROM product_insights");
+  await client.execute("DELETE FROM product_images");
+  await client.execute("DELETE FROM product_variants");
+  await client.execute("DELETE FROM order_items");
+  await client.execute("DELETE FROM orders");
+  await client.execute("DELETE FROM reviews");
   await client.execute("DELETE FROM products");
   await client.execute("DELETE FROM categories");
+
+  await client.execute("DROP TABLE IF EXISTS cart_lines");
+  await client.execute(`
+    CREATE TABLE cart_lines (
+      uid        TEXT NOT NULL,
+      product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      variant_id INTEGER NOT NULL DEFAULT 0,
+      quantity   INTEGER NOT NULL CHECK (quantity > 0),
+      updated_at TEXT NOT NULL,
+      PRIMARY KEY (uid, product_id, variant_id)
+    )
+  `);
+
+  await client.execute("DROP TABLE IF EXISTS order_items");
+  await client.execute(`
+    CREATE TABLE order_items (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id   INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      product_id INTEGER NOT NULL,
+      variant_id INTEGER NOT NULL DEFAULT 0,
+      name       TEXT NOT NULL,
+      price      INTEGER NOT NULL,
+      quantity   INTEGER NOT NULL CHECK (quantity > 0)
+    )
+  `);
 
   for (const [slug, name, description, order] of categories) {
     await client.execute({
@@ -434,9 +585,11 @@ async function main() {
   }
 
   const now = Date.now();
+  const idBySlug = new Map<string, number>();
+
   for (const p of products) {
     const createdAt = new Date(now - p.daysAgo * 86400000).toISOString();
-    await client.execute({
+    const res = await client.execute({
       sql: `INSERT INTO products
               (slug, name, description, price, category_slug, brand,
                rating, review_count, stock, image_url, tags, created_at)
@@ -446,10 +599,81 @@ async function main() {
         p.rating, p.reviews, p.stock, p.image, p.tags, createdAt,
       ],
     });
+    idBySlug.set(p.slug, Number(res.lastInsertRowid ?? 0));
+  }
+
+  let variantCount = 0;
+  for (const v of variants) {
+    const pid = idBySlug.get(v.slug);
+    if (!pid) continue;
+    let order = 0;
+    let stockSum = 0;
+    for (const opt of v.options) {
+      await client.execute({
+        sql: `INSERT INTO product_variants
+                (product_id, option_name, option_value, price_delta, stock, sort_order)
+              VALUES (?, ?, ?, ?, ?, ?)`,
+        args: [pid, v.optionName, opt.value, opt.priceDelta, opt.stock, order++],
+      });
+      stockSum += opt.stock;
+      variantCount += 1;
+    }
+    await client.execute({
+      sql: "UPDATE products SET stock = ? WHERE id = ?",
+      args: [stockSum, pid],
+    });
+  }
+
+  let imageCount = 0;
+  for (const p of products) {
+    const pid = idBySlug.get(p.slug);
+    if (!pid) continue;
+    const urls = [
+      ...(p.image ? [p.image] : []),
+      ...(extraImages[p.slug] ?? []),
+    ];
+    let order = 0;
+    for (const urlImg of urls) {
+      await client.execute({
+        sql: "INSERT INTO product_images (product_id, url, sort_order) VALUES (?, ?, ?)",
+        args: [pid, urlImg, order++],
+      });
+      imageCount += 1;
+    }
+  }
+
+  for (const i of insights) {
+    const pid = idBySlug.get(i.slug);
+    if (!pid) continue;
+    await client.execute({
+      sql: `INSERT INTO product_insights
+              (product_id, purchase_rate, top_reason, also_bought_pct, also_bought_label)
+            VALUES (?, ?, ?, ?, ?)`,
+      args: [pid, i.purchaseRate, i.topReason, i.alsoBoughtPct, i.alsoBoughtLabel],
+    });
+  }
+
+  // Default insights for products without a hand-written row.
+  for (const [slug, pid] of idBySlug) {
+    if (insights.some((i) => i.slug === slug)) continue;
+    const rate = 40 + (pid * 17) % 35;
+    await client.execute({
+      sql: `INSERT INTO product_insights
+              (product_id, purchase_rate, top_reason, also_bought_pct, also_bought_label)
+            VALUES (?, ?, ?, ?, ?)`,
+      args: [
+        pid,
+        rate,
+        "Shoppers pick this after comparing ratings and in-stock options.",
+        22 + (pid * 3) % 20,
+        "a matching accessory",
+      ],
+    });
   }
 
   console.log(
-    `Seeded ${categories.length} categories and ${products.length} products → ${url}`
+    `Seeded ${categories.length} categories, ${products.length} products, ` +
+      `${variantCount} variants, ${imageCount} images → ${url}`
   );
 }
 

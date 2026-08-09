@@ -24,6 +24,7 @@ export async function POST(req: Request) {
   const b = body as Record<string, unknown>;
   const productId = Number(b.productId);
   const quantity = Number(b.quantity);
+  const variantId = b.variantId == null ? 0 : Number(b.variantId);
 
   if (!Number.isInteger(productId) || productId <= 0) {
     return jsonError(400, "invalid_parameter", "productId must be a positive integer.");
@@ -31,10 +32,16 @@ export async function POST(req: Request) {
   if (!Number.isInteger(quantity) || quantity < 0 || quantity > 99) {
     return jsonError(400, "invalid_parameter", "quantity must be an integer between 0 and 99.");
   }
+  if (!Number.isInteger(variantId) || variantId < 0) {
+    return jsonError(400, "invalid_parameter", "variantId must be a non-negative integer.");
+  }
 
-  const result = await setCartLine(user.uid, productId, quantity);
+  const result = await setCartLine(user.uid, productId, quantity, variantId);
   if (!result.ok) {
-    return jsonError(result.code === "not_found" ? 404 : 409, result.code, result.message);
+    const status =
+      result.code === "not_found" ? 404 :
+      result.code === "variant_required" ? 400 : 409;
+    return jsonError(status, result.code, result.message);
   }
   return ok(result.cart);
 }

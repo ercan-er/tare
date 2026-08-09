@@ -26,7 +26,7 @@ are disabled, and the interface says so plainly.
 
 
 
-## 2. SQLite and Vercel 
+## 2. SQLite and Vercel
 
 This is where most people get caught, so it gets its own section.
 
@@ -297,7 +297,7 @@ that is buffering, not a broken pipeline.
 
 ## 7. Using this as a verification target v2
 
-
+Test test test
 
 ### Fault injection
 

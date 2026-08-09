@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProduct, relatedProducts } from "@/lib/queries";
 import { AddToCart } from "@/components/add-to-cart";
-import { Price } from "@/components/price";
 import { ProductCard } from "@/components/product-card";
 import { Stars } from "@/components/stars";
 import { TrackProductView } from "@/components/track-view";
@@ -39,7 +38,6 @@ export default async function ProductPage({
   if (!product) notFound();
 
   const related = await relatedProducts(product.categorySlug, product.id);
-  const out = product.stock <= 0;
 
   return (
     <div className="wrap">
@@ -68,22 +66,7 @@ export default async function ProductPage({
       </div>
 
       <div className="detail">
-        <div className="detail-art">
-          {product.imageUrl ? (
-            <img src={product.imageUrl} alt={product.name} />
-          ) : (
-            <div
-              style={{
-                width: "100%", height: "100%", display: "flex",
-                alignItems: "center", justifyContent: "center",
-                color: "var(--faint)", fontSize: 12, letterSpacing: ".14em",
-                textTransform: "uppercase",
-              }}
-            >
-              no image
-            </div>
-          )}
-        </div>
+        <ProductGallery images={product.images} alt={product.name} />
 
         <div>
           <div className="detail-title-row">
@@ -113,6 +96,27 @@ export default async function ProductPage({
 
           <p className="desc">{product.description}</p>
 
+          <ProductAiGuide
+            product={{
+              id: product.id,
+              name: product.name,
+              brand: product.brand,
+              categoryName: product.categoryName,
+              categorySlug: product.categorySlug,
+              description: product.description,
+              rating: product.rating,
+              reviewCount: product.reviewCount,
+              stock: product.stock,
+              price: product.price,
+              tags: product.tags,
+              variants: product.variants.map((v) => ({
+                optionName: v.optionName,
+                optionValue: v.optionValue,
+              })),
+              insight: product.insight,
+            }}
+          />
+
           <AddToCart
             productId={product.id}
             stock={product.stock}
@@ -120,6 +124,7 @@ export default async function ProductPage({
             price={product.price}
             brand={product.brand}
             category={product.categoryName}
+            variants={product.variants}
           />
 
           {!out && (
