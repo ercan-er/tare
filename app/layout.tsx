@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/components/auth-provider";
 import { CartProvider } from "@/components/cart-provider";
 import { WishlistProvider } from "@/components/wishlist-provider";
+import { FavoriteCategoriesProvider } from "@/components/favorite-categories";
 import { ToastProvider } from "@/components/toast-provider";
 import { LocaleProvider } from "@/components/locale-provider";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -60,14 +61,16 @@ export default function RootLayout({
             <AuthProvider>
               <CartProvider>
                 <WishlistProvider>
-                  <ToastProvider>
-                    <FirebaseMetrics />
-                    <ServiceWorker />
-                    <PromoBar />
-                    <Header />
-                    <main>{children}</main>
-                    <Footer />
-                  </ToastProvider>
+                  <FavoriteCategoriesProvider>
+                    <ToastProvider>
+                      <FirebaseMetrics />
+                      <ServiceWorker />
+                      <PromoBar />
+                      <Header />
+                      <main>{children}</main>
+                      <Footer />
+                    </ToastProvider>
+                  </FavoriteCategoriesProvider>
                 </WishlistProvider>
               </CartProvider>
             </AuthProvider>

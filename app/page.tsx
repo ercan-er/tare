@@ -5,6 +5,8 @@ import { Stories } from "@/components/stories";
 import { RecentlyViewed } from "@/components/recently-viewed";
 import { HeroShader } from "@/components/hero-shader";
 import { FlashDeal } from "@/components/flash-deal";
+import { CategoryTile } from "@/components/category-tile";
+import { FavoriteCategories } from "@/components/favorite-categories";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +47,8 @@ export default async function HomePage() {
 
       <FlashDeal />
 
+      <FavoriteCategories />
+
       <section className="sec" id="categories">
         <div className="wrap">
           <div className="sec-head">
@@ -57,16 +61,13 @@ export default async function HomePage() {
 
           <div className="cat-grid">
             {categories.map((c) => (
-              <Link
+              <CategoryTile
                 key={c.slug}
-                href={`/products?category=${c.slug}`}
-                className="cat"
-                data-testid="category-tile"
-              >
-                <h3>{c.name}</h3>
-                <p>{c.description}</p>
-                <span className="n">{c.productCount} products</span>
-              </Link>
+                slug={c.slug}
+                name={c.name}
+                description={c.description}
+                productCount={c.productCount}
+              />
             ))}
           </div>
         </div>
