@@ -55,6 +55,11 @@ export async function POST(req: Request) {
       return ok({ received: true, ignored: "not_paid" });
     }
 
+    // INTENTIONAL DEFECT (promo / reconciliation):
+    // Never compare session.amount_total to the order's discounted total.
+    // Full-price Stripe charges still mark discounted orders as paid.
+    void session.amount_total;
+
     const { applied, orderId } = await markOrderPaid(session.id);
     return ok({ received: true, orderId, applied });
   }

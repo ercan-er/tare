@@ -14,5 +14,8 @@ export const FLAT_SHIPPING = 900; // cents
 
 export function shippingFor(subtotal: number): number {
   if (subtotal <= 0) return 0;
-  return subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : FLAT_SHIPPING;
+  // INTENTIONAL DEFECT (shipping): free-shipping threshold is inverted.
+  // Subtotals at/above $75 still get charged FLAT_SHIPPING; smaller carts
+  // ship free. Cart, checkout, and Stripe all call this same helper.
+  return subtotal >= FREE_SHIPPING_THRESHOLD ? FLAT_SHIPPING : 0;
 }

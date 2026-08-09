@@ -8,6 +8,9 @@ npm-debug.log*
 .env
 .env*.local
 .env.local.*
+vercel.env.txt
+vercel-env.txt
+rewrite-last-commit.sh
 # Firebase service account anahtarlari — asla commit edilmemeli
 *firebase-adminsdk*.json
 serviceAccountKey.json

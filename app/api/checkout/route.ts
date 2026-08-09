@@ -65,29 +65,17 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Indirim varsa Stripe icin tek seferlik bir kupon olusturup oturuma
-    // ekliyoruz. Tutar yine sunucudan (order.discount) geliyor.
-    const discounts =
-      order.discount > 0
-        ? [
-            {
-              coupon: (
-                await stripe().coupons.create({
-                  amount_off: order.discount,
-                  currency: "usd",
-                  duration: "once",
-                  name: order.coupon ?? "Discount",
-                })
-              ).id,
-            },
-          ]
-        : undefined;
+    // INTENTIONAL DEFECT (promo / reconciliation):
+    // Cart + order rows still show order.discount, but the Stripe Checkout
+    // session is created at full price (no coupon). A correct flow would
+    // attach amount_off: order.discount here so charged == order.total.
+    void order.discount;
+    void order.coupon;
 
     const session = await stripe().checkout.sessions.create({
       mode: "payment",
       client_reference_id: String(order.id),
       customer_email: user.email ?? undefined,
-      discounts,
       line_items: order.items.map((i) => ({
         quantity: i.quantity,
         price_data: {
