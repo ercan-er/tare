@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useWishlist } from "@/components/wishlist-provider";
 import { WishlistButton } from "@/components/wishlist-button";
 import { useLocale } from "@/components/locale-provider";
+import { FavoriteCategories } from "@/components/favorite-categories";
 
 export default function WishlistPage() {
   const { items, ready } = useWishlist();
@@ -30,6 +31,8 @@ export default function WishlistPage() {
         </div>
         {items.length > 0 && <Link href="/products">Keep browsing</Link>}
       </div>
+
+      <FavoriteCategories bare />
 
       {items.length === 0 ? (
         <div className="empty">

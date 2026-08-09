@@ -628,6 +628,19 @@ export async function getOrderBySession(
   return row ? toOrder(row, await itemsOf(Number(row.id))) : null;
 }
 
+/** Webhook reconciliation: paid Stripe amount must match order.total. */
+export async function getOrderTotalBySession(
+  sessionId: string
+): Promise<{ orderId: number; total: number } | null> {
+  const res = await db().execute({
+    sql: "SELECT id, total FROM orders WHERE stripe_session_id = ?",
+    args: [sessionId],
+  });
+  const row = res.rows[0];
+  if (!row) return null;
+  return { orderId: Number(row.id), total: Number(row.total) };
+}
+
 export async function getOrderById(
   id: number,
   uid: string

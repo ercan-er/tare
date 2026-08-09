@@ -3,13 +3,18 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProduct, relatedProducts } from "@/lib/queries";
 import { AddToCart } from "@/components/add-to-cart";
+import { Price } from "@/components/price";
 import { ProductCard } from "@/components/product-card";
 import { Stars } from "@/components/stars";
 import { TrackProductView } from "@/components/track-view";
 import { RecordRecentView, RecentlyViewed } from "@/components/recently-viewed";
 import { ProductReviews } from "@/components/product-reviews";
 import { FrequentlyBoughtTogether } from "@/components/frequently-bought";
-import { ProductGallery, ProductInsights } from "@/components/product-media";
+import { LiveSignals } from "@/components/live-signals";
+import { StockAlert } from "@/components/stock-alert";
+import { ProductQA } from "@/components/product-qa";
+import { ShareProduct } from "@/components/share-product";
+import { ProductGallery } from "@/components/product-media";
 import { ProductAiGuide } from "@/components/product-ai-guide";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +40,7 @@ export default async function ProductPage({
   const product = await getProduct(slug);
   if (!product) notFound();
 
+  const out = product.stock <= 0;
   const related = await relatedProducts(product.categorySlug, product.id);
 
   return (
@@ -67,7 +73,10 @@ export default async function ProductPage({
         <ProductGallery images={product.images} alt={product.name} />
 
         <div>
-          <span className="eyebrow">{product.brand}</span>
+          <div className="detail-title-row">
+            <span className="eyebrow">{product.brand}</span>
+            <ShareProduct name={product.name} />
+          </div>
           <h1 data-testid="product-name">{product.name}</h1>
 
           <div className="p-meta">
@@ -78,14 +87,16 @@ export default async function ProductPage({
             </span>
           </div>
 
-          {product.insight && (
-            <ProductInsights
-              purchaseRate={product.insight.purchaseRate}
-              topReason={product.insight.topReason}
-              alsoBoughtPct={product.insight.alsoBoughtPct}
-              alsoBoughtLabel={product.insight.alsoBoughtLabel}
-            />
-          )}
+          <LiveSignals
+            productId={product.id}
+            stock={product.stock}
+            reviewCount={product.reviewCount}
+          />
+
+          <div className="price" data-testid="product-price"><Price cents={product.price} /></div>
+          <div style={{ fontSize: 14, color: out ? "var(--danger)" : "var(--ok)" }}>
+            {out ? "Sold out" : `${product.stock} in stock`}
+          </div>
 
           <p className="desc">{product.description}</p>
 
@@ -120,6 +131,12 @@ export default async function ProductPage({
             variants={product.variants}
           />
 
+          {!out && (
+            <div style={{ marginTop: 14, maxWidth: 420 }}>
+              <StockAlert productId={product.id} productName={product.name} mode="price" />
+            </div>
+          )}
+
           <table className="spec">
             <tbody>
               <tr><td>Brand</td><td>{product.brand}</td></tr>
@@ -152,6 +169,12 @@ export default async function ProductPage({
           ]}
         />
       )}
+
+      <ProductQA
+        productId={product.id}
+        name={product.name}
+        category={product.categoryName}
+      />
 
       <ProductReviews productId={product.id} />
 

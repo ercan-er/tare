@@ -1,303 +1,305 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
+import * as THREE from "three";
 
-/*
- * Cursor-reactive WebGL "coffee/steam" hero background. A single full-screen
- * triangle runs a fragment shader: domain-warped fbm fluid, rising steam on
- * top, heat glow + ripple around the pointer, and coffee beans drifting behind
- * the fluid. Theme-aware (dark: espresso+crema, light: latte/cream). No deps.
- *
- * Performance: DPR <= 2, pauses while the tab is hidden or the hero is off
- * screen, draws a single frame under reduced-motion. When WebGL is missing it
- * simply draws nothing (the CSS fallback shows through).
- */
-
-const VERT = `
-attribute vec2 a_pos;
-void main(){ gl_Position = vec4(a_pos, 0.0, 1.0); }
-`;
-
-const FRAG = `
-precision highp float;
-uniform vec2  uRes;
-uniform float uTime;
-uniform vec2  uMouse;   // uv space [0,1], y up
-uniform float uDark;    // 1.0 dark theme, 0.0 light
-
-float hash(vec2 p){
-  p = fract(p * vec2(123.34, 456.21));
-  p += dot(p, p + 45.32);
-  return fract(p.x * p.y);
+function useDarkTheme() {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const read = () => setDark(document.documentElement.dataset.theme === "dark");
+    read();
+    const mo = new MutationObserver(read);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => mo.disconnect();
+  }, []);
+  return dark;
 }
 
-float noise(vec2 p){
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  float a = hash(i + vec2(0.0, 0.0));
-  float b = hash(i + vec2(1.0, 0.0));
-  float c = hash(i + vec2(0.0, 1.0));
-  float d = hash(i + vec2(1.0, 1.0));
-  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
-}
+function Cup({ dark }: { dark: boolean }) {
+  const group = useRef<THREE.Group>(null);
+  const mouse = useRef({ x: 0, y: 0 });
 
-float fbm(vec2 p){
-  float v = 0.0;
-  float amp = 0.5;
-  for(int i = 0; i < 5; i++){
-    v += amp * noise(p);
-    p = p * 2.02 + vec2(3.1, 1.7);
-    amp *= 0.5;
-  }
-  return v;
-}
+  useEffect(() => {
+    const onMove = (e: PointerEvent) => {
+      mouse.current.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.current.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => window.removeEventListener("pointermove", onMove);
+  }, []);
 
-vec2 hash2(vec2 p){
-  return fract(sin(vec2(dot(p, vec2(127.1, 311.7)),
-                        dot(p, vec2(269.5, 183.3)))) * 43758.5453);
-}
+  useFrame((state) => {
+    if (!group.current) return;
+    const t = state.clock.elapsedTime;
+    const targetY = -0.22 + mouse.current.x * 0.2;
+    const targetX = 0.06 + mouse.current.y * 0.06;
+    group.current.rotation.y += (targetY - group.current.rotation.y) * 0.045;
+    group.current.rotation.x += (targetX - group.current.rotation.x) * 0.045;
+    group.current.position.y = -0.72 + Math.sin(t * 0.7) * 0.01;
+  });
 
-// A single coffee bean: elongated ellipse with a center crease.
-float bean(vec2 gv, vec2 off, float r, float ang){
-  vec2 d = gv - off;
-  float s = sin(ang), c = cos(ang);
-  d = mat2(c, -s, s, c) * d;
-  d.x /= 1.7;                                   // elongate -> bean shape
-  float dist = length(d);
-  float body = smoothstep(r, r * 0.45, dist);
-  float crease = smoothstep(r * 0.16, 0.0, abs(d.y)) * step(dist, r) * 0.4;
-  return clamp(body - crease, 0.0, 1.0);
-}
+  const ceramic = dark ? "#d2c9bb" : "#f6f2ea";
+  const ceramicDark = dark ? "#8f8678" : "#d8d1c4";
+  const coffee = dark ? "#160e09" : "#24160f";
+  const crema = dark ? "#6e4728" : "#8f5e30";
 
-// Coffee beans drifting behind the fluid — 3 parallax layers for depth.
-float beans(vec2 uv, float aspect, float t){
-  float acc = 0.0;
-  for(int i = 0; i < 3; i++){
-    float fl = float(i);
-    float scale = 5.0 + fl * 4.0;
-    vec2 p = vec2(uv.x * aspect, uv.y) * scale;
-    p.y += t * (0.25 + 0.12 * fl);              // float upward
-    p.x += sin(t * 0.2 + fl * 2.0) * 0.3;       // gentle sway
-    vec2 id = floor(p);
-    vec2 gv = fract(p) - 0.5;
-    vec2 h = hash2(id + fl * 37.0);
-    float present = step(0.55, h.x);            // ~45% of cells hold a bean
-    vec2 off = (hash2(id + 7.3 * fl) - 0.5) * 0.5;
-    float r = mix(0.12, 0.22, h.y) * (1.0 - fl * 0.16);
-    float ang = (h.x + h.y) * 6.283 + t * 0.3;
-    acc += bean(gv, off, r, ang) * present * (0.9 - fl * 0.22);
-  }
-  return clamp(acc, 0.0, 1.0);
-}
-
-void main(){
-  float aspect = uRes.x / uRes.y;
-  vec2 uv = gl_FragCoord.xy / uRes.xy;
-  vec2 p = vec2(uv.x * aspect, uv.y) * 2.6;
-
-  float t = uTime * 0.05;
-
-  // pointer effect (fluid ripple + heat)
-  vec2 m = vec2(uMouse.x * aspect, uMouse.y) * 2.6;
-  float md = distance(p, m);
-  float ripple = sin(md * 5.0 - uTime * 1.6) * exp(-md * 1.4) * 0.35;
-
-  // domain warp
-  vec2 q = vec2(fbm(p + t), fbm(p + vec2(5.2, 1.3) - t));
-  vec2 r = vec2(
-    fbm(p + 1.8 * q + vec2(1.7, 9.2) + 0.15 * t + ripple),
-    fbm(p + 1.8 * q + vec2(8.3, 2.8) + 0.126 * t + ripple)
+  // Outer wall → rolled rim → inner wall → floor (lathe about Y).
+  const cupProfile = useMemo(
+    () => [
+      new THREE.Vector2(0.0, 0.0),
+      new THREE.Vector2(0.48, 0.0),
+      new THREE.Vector2(0.52, 0.05),
+      new THREE.Vector2(0.62, 0.95),
+      new THREE.Vector2(0.66, 1.08),
+      // Rim bead
+      new THREE.Vector2(0.7, 1.14),
+      new THREE.Vector2(0.68, 1.2),
+      new THREE.Vector2(0.62, 1.2),
+      new THREE.Vector2(0.58, 1.14),
+      // Inner wall down
+      new THREE.Vector2(0.55, 0.22),
+      new THREE.Vector2(0.0, 0.18),
+    ],
+    [],
   );
-  float f = fbm(p + 1.6 * r);
 
-  // palettes
-  vec3 dark1 = vec3(0.043, 0.031, 0.024);
-  vec3 dark2 = vec3(0.235, 0.113, 0.051);
-  vec3 dark3 = vec3(0.545, 0.318, 0.145);
-  vec3 dark4 = vec3(0.878, 0.627, 0.361);
+  const handleCurve = useMemo(() => {
+    // Attach on the outer wall, loop out and back like a mug handle.
+    return new THREE.CatmullRomCurve3(
+      [
+        new THREE.Vector3(0.61, 0.88, 0),
+        new THREE.Vector3(0.78, 0.92, 0),
+        new THREE.Vector3(0.98, 0.72, 0),
+        new THREE.Vector3(0.98, 0.42, 0),
+        new THREE.Vector3(0.78, 0.28, 0),
+        new THREE.Vector3(0.6, 0.32, 0),
+      ],
+      false,
+      "catmullrom",
+      0.45,
+    );
+  }, []);
 
-  vec3 lite1 = vec3(0.965, 0.937, 0.878);
-  vec3 lite2 = vec3(0.858, 0.749, 0.576);
-  vec3 lite3 = vec3(0.635, 0.435, 0.247);
-  vec3 lite4 = vec3(0.443, 0.278, 0.153);
+  const handleGeo = useMemo(
+    () => new THREE.TubeGeometry(handleCurve, 64, 0.055, 16, false),
+    [handleCurve],
+  );
 
-  vec3 c1 = mix(lite1, dark1, uDark);
-  vec3 c2 = mix(lite2, dark2, uDark);
-  vec3 c3 = mix(lite3, dark3, uDark);
-  vec3 c4 = mix(lite4, dark4, uDark);
+  const rimGeo = useMemo(() => new THREE.TorusGeometry(0.64, 0.028, 20, 80), []);
 
-  vec3 col = mix(c1, c2, smoothstep(0.15, 0.9, f));
+  return (
+    <group ref={group} position={[0.4, -0.72, 0]} scale={0.58}>
+      <mesh>
+        <latheGeometry args={[cupProfile, 96]} />
+        <meshStandardMaterial color={ceramic} roughness={0.28} metalness={0.08} />
+      </mesh>
 
-  // coffee beans drifting behind (crema/steam pass in front of them)
-  float bmask = beans(uv, aspect, uTime * 0.10);
-  vec3 beanCol = mix(vec3(0.27, 0.15, 0.07), vec3(0.74, 0.49, 0.28), uDark);
-  col = mix(col, beanCol, bmask * 0.42);
+      {/* Soft rounded rim cap so the lip reads clean from the camera. */}
+      <mesh position={[0, 1.17, 0]} rotation={[Math.PI / 2, 0, 0]} geometry={rimGeo}>
+        <meshStandardMaterial color={ceramic} roughness={0.24} metalness={0.1} />
+      </mesh>
 
-  col = mix(col, c3, smoothstep(0.35, 0.95, r.y));
-  // crema/highlight band
-  float band = smoothstep(0.55, 0.95, f) * smoothstep(0.95, 0.55, r.x);
-  col = mix(col, c4, band * 0.6);
+      <mesh position={[0, 0.2, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.52, 48]} />
+        <meshStandardMaterial color={ceramicDark} roughness={0.55} metalness={0} />
+      </mesh>
 
-  // rising steam (stronger toward the top)
-  float steam = fbm(vec2(p.x * 1.3, p.y * 0.9 - uTime * 0.22));
-  steam *= smoothstep(0.32, 1.0, uv.y);
-  vec3 steamCol = mix(vec3(1.0), vec3(0.92, 0.86, 0.8), uDark);
-  col += steamCol * steam * steam * (0.10 + 0.05 * uDark);
+      <mesh position={[0, 1.1, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[0.54, 64]} />
+        <meshStandardMaterial color={coffee} roughness={0.4} metalness={0.15} />
+      </mesh>
 
-  // pointer heat glow
-  float glow = exp(-md * 2.2);
-  col += vec3(0.95, 0.55, 0.25) * glow * (0.18 + 0.22 * uDark);
+      <mesh position={[0, 1.103, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.22, 0.5, 64]} />
+        <meshStandardMaterial
+          color={crema}
+          roughness={0.55}
+          metalness={0.05}
+          transparent
+          opacity={0.65}
+        />
+      </mesh>
 
-  // subtle vignette + grain (avoids banding)
-  float vig = smoothstep(1.25, 0.2, length(uv - 0.5));
-  col *= mix(0.82, 1.0, vig);
-  col += (hash(gl_FragCoord.xy) - 0.5) * 0.015;
+      <mesh geometry={handleGeo}>
+        <meshStandardMaterial color={ceramic} roughness={0.28} metalness={0.08} />
+      </mesh>
+      {/* Cap the tube ends so they blend into the wall. */}
+      <mesh position={[0.61, 0.88, 0]}>
+        <sphereGeometry args={[0.056, 16, 16]} />
+        <meshStandardMaterial color={ceramic} roughness={0.28} metalness={0.08} />
+      </mesh>
+      <mesh position={[0.6, 0.32, 0]}>
+        <sphereGeometry args={[0.056, 16, 16]} />
+        <meshStandardMaterial color={ceramic} roughness={0.28} metalness={0.08} />
+      </mesh>
 
-  gl_FragColor = vec4(col, 1.0);
+      <Smoke dark={dark} />
+    </group>
+  );
 }
-`;
 
-function compile(gl: WebGLRenderingContext, type: number, src: string) {
-  const sh = gl.createShader(type)!;
-  gl.shaderSource(sh, src);
-  gl.compileShader(sh);
-  if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[hero-shader] shader compile error:", gl.getShaderInfoLog(sh));
+/** Soft rising smoke plumes from the coffee surface — not point particles. */
+function Smoke({ dark }: { dark: boolean }) {
+  const group = useRef<THREE.Group>(null);
+  const mats = useRef<THREE.ShaderMaterial[]>([]);
+  const color = dark ? "#c8c0b4" : "#ebe6dc";
+
+  const uniformsList = useMemo(
+    () =>
+      [0, 1, 2, 3, 4].map((i) => ({
+        uTime: { value: 0 },
+        uSeed: { value: i * 1.7 + 0.3 },
+        uColor: { value: new THREE.Color(color) },
+        uAlpha: { value: 0.28 - i * 0.03 },
+      })),
+    [color],
+  );
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    const cam = state.camera;
+    for (let i = 0; i < mats.current.length; i++) {
+      const m = mats.current[i];
+      if (m) m.uniforms.uTime.value = t;
     }
-    gl.deleteShader(sh);
-    return null;
-  }
-  return sh;
+    const g = group.current;
+    if (!g) return;
+    for (const child of g.children) {
+      child.lookAt(cam.position);
+    }
+  });
+
+  const plumes = [
+    { pos: [0.02, 1.42, 0.02] as const, scale: [0.7, 1.25, 1] as const },
+    { pos: [-0.1, 1.58, 0.06] as const, scale: [0.58, 1.45, 1] as const },
+    { pos: [0.12, 1.62, -0.05] as const, scale: [0.52, 1.55, 1] as const },
+    { pos: [-0.03, 1.85, -0.08] as const, scale: [0.62, 1.5, 1] as const },
+    { pos: [0.06, 2.05, 0.04] as const, scale: [0.48, 1.3, 1] as const },
+  ];
+
+  return (
+    <group ref={group}>
+      {plumes.map((p, i) => (
+        <mesh
+          key={i}
+          position={[p.pos[0], p.pos[1], p.pos[2]]}
+          scale={[p.scale[0], p.scale[1], p.scale[2]]}
+          frustumCulled={false}
+        >
+          <planeGeometry args={[1, 1.7]} />
+          <shaderMaterial
+            ref={(el) => {
+              if (el) mats.current[i] = el;
+            }}
+            transparent
+            depthWrite={false}
+            side={THREE.DoubleSide}
+            blending={THREE.NormalBlending}
+            uniforms={uniformsList[i]}
+            vertexShader={`
+              varying vec2 vUv;
+              void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+              }
+            `}
+            fragmentShader={`
+              uniform float uTime;
+              uniform float uSeed;
+              uniform vec3 uColor;
+              uniform float uAlpha;
+              varying vec2 vUv;
+
+              float hash(vec2 p) {
+                return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+              }
+              float noise(vec2 p) {
+                vec2 i = floor(p);
+                vec2 f = fract(p);
+                float a = hash(i);
+                float b = hash(i + vec2(1.0, 0.0));
+                float c = hash(i + vec2(0.0, 1.0));
+                float d = hash(i + vec2(1.0, 1.0));
+                vec2 u = f * f * (3.0 - 2.0 * f);
+                return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
+              }
+              float fbm(vec2 p) {
+                float v = 0.0;
+                float a = 0.5;
+                for (int i = 0; i < 5; i++) {
+                  v += a * noise(p);
+                  p *= 2.1;
+                  a *= 0.5;
+                }
+                return v;
+              }
+
+              void main() {
+                vec2 uv = vUv;
+                float rise = uTime * 0.28 + uSeed;
+                // Drift upward + gentle sway so it reads as steam, not sparks.
+                vec2 nUv = vec2(
+                  uv.x * 2.2 + sin(rise * 1.3 + uv.y * 4.0) * 0.22,
+                  uv.y * 1.6 - rise
+                );
+                float n = fbm(nUv + vec2(uSeed, 0.0));
+                float column = smoothstep(0.05, 0.38, uv.x) * smoothstep(0.95, 0.62, uv.x);
+                column *= smoothstep(0.0, 0.18, uv.y) * pow(smoothstep(1.0, 0.2, uv.y), 1.2);
+                float wisps = smoothstep(0.32, 0.78, n);
+                float a = column * wisps * uAlpha;
+                a *= 0.7 + 0.3 * sin(uTime * 1.1 + uSeed * 2.0);
+                if (a < 0.012) discard;
+                gl_FragColor = vec4(uColor, a);
+              }
+            `}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function Scene({ dark }: { dark: boolean }) {
+  const bg = dark ? "#14100D" : "#F3F1EC";
+  return (
+    <>
+      <color attach="background" args={[bg]} />
+      <fog attach="fog" args={[bg, 4, 10]} />
+      <ambientLight intensity={dark ? 0.38 : 0.58} />
+      <directionalLight position={[2.8, 4.5, 2.2]} intensity={dark ? 1.05 : 1.25} />
+      <directionalLight position={[-2.2, 1.6, -1.5]} intensity={0.35} color="#e8c9a0" />
+      <pointLight position={[0.4, 1.4, 1.1]} intensity={0.4} color="#ffd9ad" distance={5} />
+      <Cup dark={dark} />
+    </>
+  );
 }
 
 export function HeroShader() {
-  const ref = useRef<HTMLCanvasElement | null>(null);
-
+  const dark = useDarkTheme();
+  const [reduce, setReduce] = useState(false);
   useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-
-    const gl =
-      (canvas.getContext("webgl", { alpha: false, antialias: false, powerPreference: "low-power" }) as WebGLRenderingContext | null) ||
-      (canvas.getContext("experimental-webgl") as WebGLRenderingContext | null);
-    if (!gl) return; // CSS fallback takes over
-
-    const vs = compile(gl, gl.VERTEX_SHADER, VERT);
-    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
-    if (!vs || !fs) return;
-
-    const prog = gl.createProgram()!;
-    gl.attachShader(prog, vs);
-    gl.attachShader(prog, fs);
-    gl.linkProgram(prog);
-    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return;
-    gl.useProgram(prog);
-
-    const buf = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const aPos = gl.getAttribLocation(prog, "a_pos");
-    gl.enableVertexAttribArray(aPos);
-    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-
-    const uRes = gl.getUniformLocation(prog, "uRes");
-    const uTime = gl.getUniformLocation(prog, "uTime");
-    const uMouse = gl.getUniformLocation(prog, "uMouse");
-    const uDark = gl.getUniformLocation(prog, "uDark");
-
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    // state
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const mouse = { x: 0.5, y: 0.55 };       // target
-    const smooth = { x: 0.5, y: 0.55 };      // smoothed
-    let dark = document.documentElement.dataset.theme === "dark" ? 1 : 0;
-    let raf = 0;
-    let visible = true;
-    const start = performance.now();
-
-    const resize = () => {
-      const w = canvas.clientWidth || canvas.parentElement?.clientWidth || 1;
-      const h = canvas.clientHeight || canvas.parentElement?.clientHeight || 1;
-      canvas.width = Math.max(1, Math.floor(w * dpr));
-      canvas.height = Math.max(1, Math.floor(h * dpr));
-      gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.uniform2f(uRes, canvas.width, canvas.height);
-    };
-
-    const render = (now: number) => {
-      const t = (now - start) / 1000;
-      smooth.x += (mouse.x - smooth.x) * 0.06;
-      smooth.y += (mouse.y - smooth.y) * 0.06;
-      gl.uniform1f(uTime, t);
-      gl.uniform2f(uMouse, smooth.x, smooth.y);
-      gl.uniform1f(uDark, dark);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-    };
-
-    const loop = (now: number) => {
-      render(now);
-      raf = requestAnimationFrame(loop);
-    };
-
-    const startLoop = () => {
-      if (raf || reduce) return;
-      raf = requestAnimationFrame(loop);
-    };
-    const stopLoop = () => {
-      if (raf) cancelAnimationFrame(raf);
-      raf = 0;
-    };
-
-    // events
-    const onPointer = (e: PointerEvent) => {
-      const rect = canvas.getBoundingClientRect();
-      mouse.x = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-      mouse.y = 1 - Math.min(1, Math.max(0, (e.clientY - rect.top) / rect.height));
-    };
-    const onVisibility = () => {
-      if (document.hidden) stopLoop();
-      else if (visible) startLoop();
-    };
-    const ro = new ResizeObserver(() => { resize(); if (reduce) render(performance.now()); });
-    ro.observe(canvas.parentElement || canvas);
-
-    const io = new IntersectionObserver(
-      (entries) => {
-        visible = entries[0]?.isIntersecting ?? true;
-        if (visible && !document.hidden) startLoop();
-        else stopLoop();
-      },
-      { threshold: 0.01 },
-    );
-    io.observe(canvas);
-
-    const mo = new MutationObserver(() => {
-      dark = document.documentElement.dataset.theme === "dark" ? 1 : 0;
-      if (reduce) render(performance.now());
-    });
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
-
-    window.addEventListener("pointermove", onPointer, { passive: true });
-    document.addEventListener("visibilitychange", onVisibility);
-
-    resize();
-    if (reduce) render(performance.now());
-    else startLoop();
-
-    return () => {
-      stopLoop();
-      ro.disconnect();
-      io.disconnect();
-      mo.disconnect();
-      window.removeEventListener("pointermove", onPointer);
-      document.removeEventListener("visibilitychange", onVisibility);
-      const ext = gl.getExtension("WEBGL_lose_context");
-      if (ext) ext.loseContext();
-    };
+    setReduce(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }, []);
 
-  return <canvas ref={ref} className="hero-canvas" aria-hidden="true" />;
+  return (
+    <div className="hero-canvas" onContextMenu={(e) => e.preventDefault()} aria-hidden>
+      <Canvas
+        dpr={[1, 1.75]}
+        camera={{ position: [1.2, 0.55, 2.85], fov: 34, near: 0.1, far: 40 }}
+        gl={{
+          antialias: true,
+          alpha: false,
+          powerPreference: "high-performance",
+          preserveDrawingBuffer: false,
+        }}
+        onCreated={({ gl }) => {
+          gl.domElement.addEventListener("contextmenu", (e) => e.preventDefault());
+        }}
+        frameloop={reduce ? "demand" : "always"}
+      >
+        <Scene dark={dark} />
+      </Canvas>
+    </div>
+  );
 }

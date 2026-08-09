@@ -8,6 +8,7 @@ import { useToast } from "./toast-provider";
 import { useLocale } from "./locale-provider";
 import { Price } from "./price";
 import { trackAddToCart } from "@/lib/metrics";
+import { StockAlert } from "./stock-alert";
 import { VariantPicker } from "./product-media";
 import type { ProductVariant } from "@/lib/types";
 
@@ -47,6 +48,15 @@ export function AddToCart({
     () => variants[0]?.optionName ?? "Option",
     [variants],
   );
+
+  if (out && !hasVariants) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
+        <div className="alert err">This product is currently sold out.</div>
+        <StockAlert productId={productId} productName={name} mode="stock" />
+      </div>
+    );
+  }
 
   if (!user) {
     return (

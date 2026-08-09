@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { Product } from "@/lib/types";
 import { Stars } from "./stars";
 import { WishlistButton } from "./wishlist-button";
-import { Price } from "./price";
+import { ProductPromoPrice } from "./product-promo-price";
 
 export function ProductCard({ p }: { p: Product }) {
   const out = p.stock <= 0;
@@ -32,7 +32,9 @@ export function ProductCard({ p }: { p: Product }) {
           <span style={{ color: "var(--faint)" }}>({p.reviewCount})</span>
         </div>
         <div className="p-foot">
-          <span className="p-price" data-testid="price"><Price cents={p.price} /></span>
+          <span className="p-price" data-testid="price">
+            <ProductPromoPrice cents={p.price} />
+          </span>
           <span style={{ fontSize: 12.5, color: out ? "var(--danger)" : "var(--ok)" }}>
             {out ? "Out of stock" : "In stock"}
           </span>
