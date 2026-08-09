@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { getProduct, relatedProducts } from "@/lib/queries";
 import { AddToCart } from "@/components/add-to-cart";
+import { Price } from "@/components/price";
 import { ProductCard } from "@/components/product-card";
 import { Stars } from "@/components/stars";
 import { TrackProductView } from "@/components/track-view";
@@ -13,6 +14,8 @@ import { LiveSignals } from "@/components/live-signals";
 import { StockAlert } from "@/components/stock-alert";
 import { ProductQA } from "@/components/product-qa";
 import { ShareProduct } from "@/components/share-product";
+import { ProductGallery } from "@/components/product-media";
+import { ProductAiGuide } from "@/components/product-ai-guide";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +40,7 @@ export default async function ProductPage({
   const product = await getProduct(slug);
   if (!product) notFound();
 
+  const out = product.stock <= 0;
   const related = await relatedProducts(product.categorySlug, product.id);
 
   return (

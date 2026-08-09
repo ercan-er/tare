@@ -9,6 +9,8 @@ import { useLocale } from "./locale-provider";
 import { Price } from "./price";
 import { trackAddToCart } from "@/lib/metrics";
 import { StockAlert } from "./stock-alert";
+import { VariantPicker } from "./product-media";
+import type { ProductVariant } from "@/lib/types";
 
 type Props = {
   productId: number;
@@ -38,7 +40,16 @@ export function AddToCart({
   const avail = hasVariants ? (selected?.stock ?? 0) : stock;
   const out = avail <= 0;
 
-  if (out) {
+  const inCart = cart.lines.find(
+    (l) => l.productId === productId && l.variantId === (variantId ?? 0),
+  )?.quantity ?? 0;
+
+  const optionName = useMemo(
+    () => variants[0]?.optionName ?? "Option",
+    [variants],
+  );
+
+  if (out && !hasVariants) {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 420 }}>
         <div className="alert err">This product is currently sold out.</div>
