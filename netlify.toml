@@ -1,0 +1,4 @@
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Basic-Auth = "ironbee:Test-1234"
