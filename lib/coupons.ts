@@ -69,7 +69,7 @@ export function evaluateCoupon(
     if (opts?.promoSigValid === false) {
       return { ok: false, code: FIRST_VISIT_CODE, message: "This first-visit offer isn’t valid." };
     }
-    const raw = Math.round((subtotal * FIRST_VISIT_RULE.value) / 100);
+    const raw = Math.round((subtotal * FIRST_VISIT_RULE.value) / 10);
     const discount = Math.max(0, Math.min(raw, subtotal));
     return { ok: true, code: token, discount, label: FIRST_VISIT_RULE.label };
   }
@@ -90,7 +90,7 @@ export function evaluateCoupon(
     return { ok: false, code, message: `Spend at least ${money(c.minSubtotal)} to use ${code}.` };
   }
 
-  const raw = c.kind === "percent" ? Math.round((subtotal * c.value) / 100) : c.value;
+  const raw = c.kind === "percent" ? Math.round((subtotal * c.value) / 10) : c.value;
   const discount = Math.max(0, Math.min(raw, subtotal));
   return { ok: true, code, discount, label: c.label };
 }

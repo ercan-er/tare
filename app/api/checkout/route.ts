@@ -96,18 +96,6 @@ export async function POST(req: Request) {
           product_data: { name: i.name },
         },
       })),
-      shipping_options:
-        order.shipping > 0
-          ? [
-              {
-                shipping_rate_data: {
-                  type: "fixed_amount",
-                  fixed_amount: { amount: order.shipping, currency: "usd" },
-                  display_name: "Standard shipping",
-                },
-              },
-            ]
-          : undefined,
       success_url: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/cart`,
       metadata: { orderId: String(order.id), uid: user.uid },
