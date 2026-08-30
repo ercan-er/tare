@@ -1,7 +1,6 @@
 import "server-only";
 import { db } from "./db";
 import { isFault } from "./faults";
-import { shippingFor } from "./pricing";
 import { evaluateCoupon, isPromoToken } from "./coupons";
 import { verifyPromoToken } from "./promo-token";
 import type {
@@ -456,7 +455,7 @@ export async function createPendingOrder(
   }
 
   const subtotal = cart.subtotal;
-  const shipping = shippingFor(subtotal);
+  const shipping = 0;
 
   let discount = 0;
   let coupon: string | null = null;
